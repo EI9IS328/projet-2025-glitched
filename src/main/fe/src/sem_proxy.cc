@@ -53,6 +53,7 @@ SEMproxy::SEMproxy(const SemProxyOptions& opt)
   bool isElastic = isElastic_;
 
   snapshot_folder_ = opt.snapshot_folder_path;
+  snapshot_iterations_interval_ = opt.snapshot_interval;
   if (opt.snapshot_folder_path.length() > 0)
   {
     should_snapshot_ = true;
@@ -170,8 +171,7 @@ void SEMproxy::run()
                                      pnGlobal, "pnGlobal");
     }
 
-    int snapshot_inteval = 50;  // TODO: replace by actual cli arg
-    if (should_snapshot_ && indexTimeSample % snapshot_inteval == 0)
+    if (should_snapshot_ && indexTimeSample % snapshot_iterations_interval_ == 0)
     {
       // create path string
       std::ostringstream stringStream;

@@ -90,7 +90,7 @@ class SEMproxy
 
   // snapshots
   bool should_snapshot_ = false;
-  int snap_time_interval_;
+  int snapshot_iterations_interval_;
   std::string snapshot_folder_;
 
   // physics
