@@ -16,7 +16,6 @@
 
 #include <memory>
 #include <string>
-#include <variant>
 
 #include "sem_proxy_options.h"
 
@@ -35,7 +34,7 @@ class SEMproxy
   /**
    * @brief Destructor of the SEMproxy class
    */
-  ~SEMproxy(){};
+  ~SEMproxy() {};
 
   /**
    * @brief Initialize the simulation.
@@ -85,7 +84,7 @@ class SEMproxy
   int nb_elements_[3] = {0};
   int nb_nodes_[3] = {0};
   std::array<float, 3> src_coord_ = {0};
-  std::array<float, 3> rcv_coord_ = {0};
+  std::vector<std::array<float, 3>> rcvs_coord_;
   float domain_size_[3] = {0};
 
   // snapshots
