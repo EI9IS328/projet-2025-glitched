@@ -13,6 +13,7 @@
 #include <source_and_receiver_utils.h>
 
 #include <cxxopts.hpp>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -51,13 +52,20 @@ SEMproxy::SEMproxy(const SemProxyOptions& opt)
   cout << boolalpha;
   bool isElastic = isElastic_;
 
+  snapshot_folder_ = opt.snapshot_folder_path;
+  if (opt.snapshot_folder_path.length() > 0)
+  {
+    should_snapshot_ = true;
+  }
+
   const SolverFactory::methodType methodType = getMethod(opt.method);
   const SolverFactory::implemType implemType = getImplem(opt.implem);
   const SolverFactory::meshType meshType = getMesh(opt.mesh);
   const SolverFactory::modelLocationType modelLocation =
       isModelOnNodes ? SolverFactory::modelLocationType::OnNodes
                      : SolverFactory::modelLocationType::OnElements;
-  const SolverFactory::physicType physicType = SolverFactory::physicType::Acoustic;
+  const SolverFactory::physicType physicType =
+      SolverFactory::physicType::Acoustic;
 
   float lx = domain_size_[0];
   float ly = domain_size_[1];
@@ -137,7 +145,6 @@ SEMproxy::SEMproxy(const SemProxyOptions& opt)
   std::cout << "Order of approximation will be " << order << std::endl;
   std::cout << "Time step is " << dt_ << "s" << std::endl;
   std::cout << "Simulated time is " << timemax_ << "s" << std::endl;
-
 }
 
 void SEMproxy::run()
@@ -161,6 +168,50 @@ void SEMproxy::run()
     {
       m_solver->outputSolutionValues(indexTimeSample, i1, rhsElement[0],
                                      pnGlobal, "pnGlobal");
+    }
+
+    int snapshot_inteval = 50;  // TODO: replace by actual cli arg
+    if (should_snapshot_ && indexTimeSample % snapshot_inteval == 0)
+    {
+      // create path string
+      std::ostringstream stringStream;
+      stringStream << snapshot_folder_;
+      stringStream << "/snapshot";
+      stringStream << indexTimeSample;
+      stringStream << ".bin";
+      std::string snapshot_file_path = stringStream.str();
+
+      std::cout << "snapshoting at " << snapshot_file_path << std::endl;
+      std::cout << "size: " << solverData.m_pnGlobal.size() << std::endl;
+
+      // open snapshot file
+      ofstream snapshot_file;
+      snapshot_file.open(snapshot_file_path);
+      snapshot_file.write(reinterpret_cast<char*>(solverData.m_pnGlobal.data()),
+                          solverData.m_pnGlobal.size() * sizeof(float));
+
+#if 0
+      int dim = m_mesh->getOrder() + 1;
+      for (int elementNumber = 0; elementNumber <
+      m_mesh->getNumberOfElements(); elementNumber++) {
+        for (int i = 0; i < m_mesh->getNumberOfPointsPerElement(); ++i)
+        {
+          int x = i % dim;
+          int z = (i / dim) % dim;
+          int y = i / (dim * dim);
+          int const globalIdx = m_mesh->globalNodeIndex(elementNumber, x, y,
+          z); snapshot_file << solverData.m_pnGlobal(globalIdx, i2);
+
+          if (i != m_mesh->getNumberOfPointsPerElement()-1) { // if not last
+          point of the element
+            snapshot_file << ",";
+          }
+        }
+        snapshot_file << std::endl;
+      }
+#endif
+
+      snapshot_file.close();
     }
 
     // Save pressure at receiver
