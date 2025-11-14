@@ -182,28 +182,29 @@ void SEMproxy::run()
       std::string snapshot_file_path = stringStream.str();
 
       std::cout << "snapshoting at " << snapshot_file_path << std::endl;
-      std::cout << "size: " << solverData.m_pnGlobal.size() << std::endl;
 
       // open snapshot file
       ofstream snapshot_file;
       snapshot_file.open(snapshot_file_path);
+#ifdef BINARY_SNAPSHOTS
       snapshot_file.write(reinterpret_cast<char*>(solverData.m_pnGlobal.data()),
                           solverData.m_pnGlobal.size() * sizeof(float));
-
-#if 0
+#else
       int dim = m_mesh->getOrder() + 1;
-      for (int elementNumber = 0; elementNumber <
-      m_mesh->getNumberOfElements(); elementNumber++) {
+      for (int elementNumber = 0; elementNumber < m_mesh->getNumberOfElements();
+           elementNumber++)
+      {
         for (int i = 0; i < m_mesh->getNumberOfPointsPerElement(); ++i)
         {
           int x = i % dim;
           int z = (i / dim) % dim;
           int y = i / (dim * dim);
-          int const globalIdx = m_mesh->globalNodeIndex(elementNumber, x, y,
-          z); snapshot_file << solverData.m_pnGlobal(globalIdx, i2);
+          int const globalIdx = m_mesh->globalNodeIndex(elementNumber, x, y, z);
+          snapshot_file << solverData.m_pnGlobal(globalIdx, i2);
 
-          if (i != m_mesh->getNumberOfPointsPerElement()-1) { // if not last
-          point of the element
+          if (i != m_mesh->getNumberOfPointsPerElement() -
+                       1)  // if not last point of the element
+          {
             snapshot_file << ",";
           }
         }
