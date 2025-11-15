@@ -91,6 +91,7 @@ class SEMproxy
   int nb_nodes_[3] = {0};
   std::array<float, 3> src_coord_ = {0};
   std::vector<std::array<float, 3>> rcvs_coord_;
+  int rcvs_size_;
   float domain_size_[3] = {0};
 
   // snapshots

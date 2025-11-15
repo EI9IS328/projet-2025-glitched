@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <cxxopts.hpp>
+#include <fstream>
 #include <iostream>
 #include <ostream>
 #include <string>
@@ -62,6 +63,7 @@ SEMproxy::SEMproxy(const SemProxyOptions& opt)
   int ex = nb_elements_[0];
   int ey = nb_elements_[1];
   int ez = nb_elements_[2];
+  rcvs_size_ = opt.rcvs.size();
 
   if (meshType == SolverFactory::Struct)
   {
@@ -121,12 +123,12 @@ SEMproxy::SEMproxy(const SemProxyOptions& opt)
                           opt.taper_delta);
 
   // watched receivers list
-  if (opt.rcvs.size() > m_mesh->getNumberOfElements())
+  if (rcvs_size_ > m_mesh->getNumberOfElements())
   {
     throw std::runtime_error(
         "trying to define more receivers than there are elements");
   }
-  for (int i = 0; i < opt.rcvs.size(); i++)
+  for (int i = 0; i < rcvs_size_; i++)
   {
     auto rcv = opt.rcvs[i];
     auto x = std::get<0>(rcv);
@@ -194,7 +196,7 @@ void SEMproxy::run()
     // Save pressure for every receiver
     const int order = m_mesh->getOrder();
 
-    for (int rcvIdx = 0; rcvIdx < rcvs_coord_.size(); rcvIdx++)
+    for (int rcvIdx = 0; rcvIdx < rcvs_size_; rcvIdx++)
     {
       float varnp1 = 0.0;
       for (int i = 0; i < order + 1; i++)
@@ -231,11 +233,27 @@ void SEMproxy::run()
     {
       /*
        * <HEADER>
-       * <pnAtReceiver.dump>
+       * <rcvs_coord_.dump><pnAtReceiver.dump>
        *
-       * with <HEADER> being two integers, nb_receuvers and
+       * with <HEADER> being two integers, nb_receivers and
        * nb_samples_per_receiver.
        */
+      std::ofstream watchedReceiversOutput(
+          watchedReceiversOutputPath,
+          std::ios::trunc | std::ios::out | std::ios::binary);
+      // first we write the header
+      watchedReceiversOutput.write(reinterpret_cast<char*>(&rcvs_size_),
+                                   sizeof(int));
+      watchedReceiversOutput.write(reinterpret_cast<char*>(&num_sample_),
+                                   sizeof(int));
+      // then we dump rcvs_coord_
+      watchedReceiversOutput.write(
+          reinterpret_cast<char*>(rcvs_coord_.data()),
+          sizeof(std::array<float, 3>) * rcvs_coord_.size());
+      // and finally the sample array
+      watchedReceiversOutput.write(reinterpret_cast<char*>(pnAtReceiver.data()),
+                                   sizeof(float) * pnAtReceiver.size());
+      watchedReceiversOutput.close();
     }
     else
     {
@@ -252,10 +270,9 @@ void SEMproxy::run()
        */
       std::ofstream watchedReceiversOutput(watchedReceiversOutputPath,
                                            std::ios::trunc | std::ios::out);
-      watchedReceiversOutput << rcvs_coord_.size() << ";" << num_sample_
-                             << std::endl;
+      watchedReceiversOutput << rcvs_size_ << ";" << num_sample_ << std::endl;
 
-      for (int i = 0; i < rcvs_coord_.size(); i++)
+      for (int i = 0; i < rcvs_size_; i++)
       {
         auto rcv_coord = rcvs_coord_[i];
         watchedReceiversOutput << rcv_coord[0] << ";" << rcv_coord[1] << ";"
@@ -299,14 +316,12 @@ void SEMproxy::init_arrays()
   myRHSTerm = allocateArray2D<arrayReal>(myNumberOfRHS, num_sample_, "RHSTerm");
   pnGlobal =
       allocateArray2D<arrayReal>(m_mesh->getNumberOfNodes(), 2, "pnGlobal");
-  pnAtReceiver = allocateArray2D<arrayReal>(rcvs_coord_.size(), num_sample_,
-                                            "pnAtReceiver");
+  pnAtReceiver =
+      allocateArray2D<arrayReal>(rcvs_size_, num_sample_, "pnAtReceiver");
   // Receivers
-  rhsElementRcv =
-      allocateVector<vectorInt>(rcvs_coord_.size(), "rhsElementRcv");
+  rhsElementRcv = allocateVector<vectorInt>(rcvs_size_, "rhsElementRcv");
   rhsWeightsRcv = allocateArray2D<arrayReal>(
-      rcvs_coord_.size(), m_mesh->getNumberOfPointsPerElement(),
-      "RHSWeightRcv");
+      rcvs_size_, m_mesh->getNumberOfPointsPerElement(), "RHSWeightRcv");
 }
 
 // Initialize sources
@@ -391,7 +406,7 @@ void SEMproxy::init_source()
   }
 
   // preparing every receiver
-  for (int i = 0; i < rcvs_coord_.size(); i++)
+  for (int i = 0; i < rcvs_size_; i++)
   {
     // Receiver computation
     int receiver_index =
@@ -403,7 +418,7 @@ void SEMproxy::init_source()
 
     // Get coordinates of the corners of the receiver element
     float cornerCoordsRcv[8][3];
-    I = 0;
+    I = 0u;
     for (int k : nodes_corner)
     {
       for (int j : nodes_corner)
