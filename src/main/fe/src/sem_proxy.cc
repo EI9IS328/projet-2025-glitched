@@ -376,15 +376,15 @@ void SEMproxy::init_source()
   {
     case 1:
       SourceAndReceiverUtils::ComputeRHSWeights<1>(cornerCoords, src_coord_,
-                                                   rhsWeights);
+                                                   rhsWeights, 0);
       break;
     case 2:
       SourceAndReceiverUtils::ComputeRHSWeights<2>(cornerCoords, src_coord_,
-                                                   rhsWeights);
+                                                   rhsWeights, 0);
       break;
     case 3:
       SourceAndReceiverUtils::ComputeRHSWeights<3>(cornerCoords, src_coord_,
-                                                   rhsWeights);
+                                                   rhsWeights, 0);
       break;
     default:
       throw std::runtime_error("Unsupported order: " + std::to_string(order));
@@ -419,21 +419,19 @@ void SEMproxy::init_source()
       }
     }
 
-    // TODO: ask if it's normal to always rely on the same rhsWeights (follow up
-    // in source_and_receiver_utils.h:41)
     switch (order)
     {
       case 1:
         SourceAndReceiverUtils::ComputeRHSWeights<1>(
-            cornerCoordsRcv, rcvs_coord_[i], rhsWeightsRcv);
+            cornerCoordsRcv, rcvs_coord_[i], rhsWeightsRcv, i);
         break;
       case 2:
         SourceAndReceiverUtils::ComputeRHSWeights<2>(
-            cornerCoordsRcv, rcvs_coord_[i], rhsWeightsRcv);
+            cornerCoordsRcv, rcvs_coord_[i], rhsWeightsRcv, i);
         break;
       case 3:
         SourceAndReceiverUtils::ComputeRHSWeights<3>(
-            cornerCoordsRcv, rcvs_coord_[i], rhsWeightsRcv);
+            cornerCoordsRcv, rcvs_coord_[i], rhsWeightsRcv, i);
         break;
       default:
         throw std::runtime_error("Unsupported order: " + std::to_string(order));
