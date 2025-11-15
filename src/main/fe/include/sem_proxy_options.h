@@ -33,8 +33,8 @@ class SemProxyOptions
   bool isElastic = false;
   // handling of watchedReceivers files
   std::string watchedReceiversListPath = "";
-  std::string watchedReceiverOutputPath = "";
-  std::string watchedReceiverOutputFormat = "bin";
+  std::string watchedReceiversOutputPath = "";
+  std::string watchedReceiversOutputFormat = "bin";
 
   void validate()
   {
@@ -82,24 +82,24 @@ class SemProxyOptions
       watchedReceiversListFile.close();
     }
     // handling of the watchedReceivers output file
-    if (!watchedReceiverOutputPath.empty())
+    if (!watchedReceiversOutputPath.empty())
     {
       // check the file can be made by actually creating it and removing it
       // right afterwards
-      std::ofstream watchedReceiverOutputFile(watchedReceiverOutputPath,
-                                              std::ios::out | std::ios::trunc);
-      if (watchedReceiverOutputFile.fail())
+      std::ofstream watchedReceiversOutputFile(watchedReceiversOutputPath,
+                                               std::ios::out | std::ios::trunc);
+      if (watchedReceiversOutputFile.fail())
       {
         throw std::runtime_error("Couldn't create file at path " +
-                                 watchedReceiverOutputPath);
+                                 watchedReceiversOutputPath);
       }
-      watchedReceiverOutputFile.close();
-      std::filesystem::remove(watchedReceiverOutputPath);
+      watchedReceiversOutputFile.close();
+      std::filesystem::remove(watchedReceiversOutputPath);
     }
-    if (watchedReceiverOutputFormat != "bin" &&
-        watchedReceiverOutputFormat != "plain")
+    if (watchedReceiversOutputFormat != "bin" &&
+        watchedReceiversOutputFormat != "plain")
     {
-      throw std::runtime_error("Format " + watchedReceiverOutputFormat +
+      throw std::runtime_error("Format " + watchedReceiversOutputFormat +
                                " not recognized");
     }
   }
@@ -145,9 +145,9 @@ class SemProxyOptions
         "Path for a list of watchedReceivers to save values from",
         cxxopts::value<std::string>(o.watchedReceiversListPath))(
         "output-receivers", "Path for the output receivers data to be saved at",
-        cxxopts::value<std::string>(o.watchedReceiverOutputPath))(
+        cxxopts::value<std::string>(o.watchedReceiversOutputPath))(
         "output-receivers-format",
         "Format for the output receivers data to be saved at. bin|plain",
-        cxxopts::value<std::string>(o.watchedReceiverOutputFormat));
+        cxxopts::value<std::string>(o.watchedReceiversOutputFormat));
   }
 };
