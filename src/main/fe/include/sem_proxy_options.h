@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <cxxopts.hpp>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
@@ -32,6 +33,8 @@ class SemProxyOptions
   bool isElastic = false;
   // handling of watchedReceivers files
   std::string watchedReceiversListPath = "";
+  std::string watchedReceiverOutputPath = "";
+  std::string watchedReceiverOutputFormat = "bin";
 
   void validate()
   {
@@ -76,6 +79,28 @@ class SemProxyOptions
           throw std::runtime_error("invalid coordinate: " + curLine);
         }
       }
+      watchedReceiversListFile.close();
+    }
+    // handling of the watchedReceivers output file
+    if (!watchedReceiverOutputPath.empty())
+    {
+      // check the file can be made by actually creating it and removing it
+      // right afterwards
+      std::ofstream watchedReceiverOutputFile(watchedReceiverOutputPath,
+                                              std::ios::out | std::ios::trunc);
+      if (watchedReceiverOutputFile.fail())
+      {
+        throw std::runtime_error("Couldn't create file at path " +
+                                 watchedReceiverOutputPath);
+      }
+      watchedReceiverOutputFile.close();
+      std::filesystem::remove(watchedReceiverOutputPath);
+    }
+    if (watchedReceiverOutputFormat != "bin" &&
+        watchedReceiverOutputFormat != "plain")
+    {
+      throw std::runtime_error("Format " + watchedReceiverOutputFormat +
+                               " not recognized");
     }
   }
 
@@ -111,11 +136,18 @@ class SemProxyOptions
         "taper-delta", "Taper delta for sponge boundaries value",
         cxxopts::value<float>(o.taper_delta))(
         "is-model-on-nodes",
-        "Boolean to tell if the model is charged on nodes (true) or on element "
+        "Boolean to tell if the model is charged on nodes (true) or on "
+        "element "
         "(false)",
         cxxopts::value<bool>(o.isModelOnNodes))(
         "is-elastic", "Elastic simulation", cxxopts::value<bool>(o.isElastic))(
-        "sp", "Path for a list of watchedReceivers to save values from",
-        cxxopts::value<std::string>(o.watchedReceiversListPath));
+        "watched-receivers",
+        "Path for a list of watchedReceivers to save values from",
+        cxxopts::value<std::string>(o.watchedReceiversListPath))(
+        "output-receivers", "Path for the output receivers data to be saved at",
+        cxxopts::value<std::string>(o.watchedReceiverOutputPath))(
+        "output-receivers-format",
+        "Format for the output receivers data to be saved at. bin|plain",
+        cxxopts::value<std::string>(o.watchedReceiverOutputFormat));
   }
 };
