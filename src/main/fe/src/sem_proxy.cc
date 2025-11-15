@@ -120,6 +120,7 @@ SEMproxy::SEMproxy(const SemProxyOptions& opt)
   m_solver->computeFEInit(*m_mesh, sponge_size, opt.surface_sponge,
                           opt.taper_delta);
 
+  // watched receivers list
   if (opt.rcvs.size() > m_mesh->getNumberOfElements())
   {
     throw std::runtime_error(
@@ -140,6 +141,15 @@ SEMproxy::SEMproxy(const SemProxyOptions& opt)
       throw std::runtime_error(errorSS.str());
     }
     rcvs_coord_.push_back({x, y, z});
+  }
+
+  // watched reveivers output
+  if (!opt.watchedReceiversOutputPath.empty())
+  {
+    saveWatchedReceiversOutput = true;
+    watchedReceiversOutputPath = opt.watchedReceiversOutputPath;
+    watchedReceiversOutputFormat =
+        opt.watchedReceiversOutputFormat == "bin" ? BIN : PLAIN;
   }
 
   initFiniteElem();
@@ -212,6 +222,56 @@ void SEMproxy::run()
     solverData.m_i2 = tmp;
 
     totalOutputTime += system_clock::now() - startOutputTime;
+  }
+
+  // handling save of watched receiver data:
+  if (saveWatchedReceiversOutput)
+  {
+    if (watchedReceiversOutputFormat == BIN)
+    {
+      /*
+       * <HEADER>
+       * <pnAtReceiver.dump>
+       *
+       * with <HEADER> being two integers, nb_receuvers and
+       * nb_samples_per_receiver.
+       */
+    }
+    else
+    {
+      /*
+       * plaintext format will be fairly simply:
+       * nb_receivers;nb_samples_per_receiver
+       * coords_rcv_1
+       * result_rcv_1_1;result_rcv_1_2;result_rcv_1_3(...)result_rcv_1_{nb_samples_per_receiver}
+       * coords_rcv_2
+       * result_rcv_2_1;result_rcv_2_2;result_rcv_2_3(...)result_rcv_2_{nb_samples_per_receiver}
+       * (...)
+       * coords_rcv_{nb_receivers}
+       * result_rcv_{nb_receivers}_1;result_rcv_{nb_receivers}_2;(...)result_rcv_{nb_receivers}_{nb_samples_per_receiver}
+       */
+      std::ofstream watchedReceiversOutput(watchedReceiversOutputPath,
+                                           std::ios::trunc | std::ios::out);
+      watchedReceiversOutput << rcvs_coord_.size() << ";" << num_sample_
+                             << std::endl;
+
+      for (int i = 0; i < rcvs_coord_.size(); i++)
+      {
+        auto rcv_coord = rcvs_coord_[i];
+        watchedReceiversOutput << rcv_coord[0] << ";" << rcv_coord[1] << ";"
+                               << rcv_coord[2] << std::endl;
+        for (int j = 0; j < num_sample_; j++)
+        {
+          watchedReceiversOutput << pnAtReceiver(i, j);
+          if (j + 1 < num_sample_) watchedReceiversOutput << ";";
+          // we always add `\n` even if it's the last receiver, as POSIX
+          // compliance is the key for an healthy life
+          else
+            watchedReceiversOutput << std::endl;
+        }
+      }
+      watchedReceiversOutput.close();
+    }
   }
 
   float kerneltime_ms = time_point_cast<microseconds>(totalComputeTime)

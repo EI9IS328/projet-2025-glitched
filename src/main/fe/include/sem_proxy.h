@@ -19,6 +19,12 @@
 
 #include "sem_proxy_options.h"
 
+enum WatchedReceiversOutputFormat
+{
+  BIN,
+  PLAIN,
+};
+
 /**
  * @class SEMproxy
  */
@@ -118,6 +124,10 @@ class SEMproxy
   arrayReal rhsWeightsRcv;
   arrayReal pnAtReceiver;
 
+  // watched receivers output
+  bool saveWatchedReceiversOutput = false;
+  std::string watchedReceiversOutputPath;
+  WatchedReceiversOutputFormat watchedReceiversOutputFormat;
   // initialize source and RHS
   void init_source();
 
