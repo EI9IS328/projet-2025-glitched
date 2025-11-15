@@ -251,8 +251,11 @@ void SEMproxy::run()
           reinterpret_cast<char*>(rcvs_coord_.data()),
           sizeof(std::array<float, 3>) * rcvs_coord_.size());
       // and finally the sample array
-      watchedReceiversOutput.write(reinterpret_cast<char*>(pnAtReceiver.data()),
-                                   sizeof(float) * pnAtReceiver.size());
+      watchedReceiversOutput.write(
+          reinterpret_cast<char*>(pnAtReceiver.data()),
+          sizeof(float) *
+              pnAtReceiver.size());  // pnAtReceiver.size() is the full array
+                                     // size, not one single dim
       watchedReceiversOutput.close();
     }
     else
