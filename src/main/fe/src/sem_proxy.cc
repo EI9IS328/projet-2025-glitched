@@ -231,66 +231,11 @@ void SEMproxy::run()
   {
     if (watchedReceiversOutputFormat == BIN)
     {
-      /*
-       * <HEADER>
-       * <rcvs_coord_.dump><pnAtReceiver.dump>
-       *
-       * with <HEADER> being two integers, nb_receivers and
-       * nb_samples_per_receiver.
-       */
-      std::ofstream watchedReceiversOutput(
-          watchedReceiversOutputPath,
-          std::ios::trunc | std::ios::out | std::ios::binary);
-      // first we write the header
-      watchedReceiversOutput.write(reinterpret_cast<char*>(&rcvs_size_),
-                                   sizeof(int));
-      watchedReceiversOutput.write(reinterpret_cast<char*>(&num_sample_),
-                                   sizeof(int));
-      // then we dump rcvs_coord_
-      watchedReceiversOutput.write(
-          reinterpret_cast<char*>(rcvs_coord_.data()),
-          sizeof(std::array<float, 3>) * rcvs_coord_.size());
-      // and finally the sample array
-      watchedReceiversOutput.write(
-          reinterpret_cast<char*>(pnAtReceiver.data()),
-          sizeof(float) *
-              pnAtReceiver.size());  // pnAtReceiver.size() is the full array
-                                     // size, not one single dim
-      watchedReceiversOutput.close();
+      save_watched_receivers_output_bin();
     }
     else
     {
-      /*
-       * plaintext format will be fairly simply:
-       * nb_receivers;nb_samples_per_receiver
-       * coords_rcv_1
-       * result_rcv_1_1;result_rcv_1_2;result_rcv_1_3(...)result_rcv_1_{nb_samples_per_receiver}
-       * coords_rcv_2
-       * result_rcv_2_1;result_rcv_2_2;result_rcv_2_3(...)result_rcv_2_{nb_samples_per_receiver}
-       * (...)
-       * coords_rcv_{nb_receivers}
-       * result_rcv_{nb_receivers}_1;result_rcv_{nb_receivers}_2;(...)result_rcv_{nb_receivers}_{nb_samples_per_receiver}
-       */
-      std::ofstream watchedReceiversOutput(watchedReceiversOutputPath,
-                                           std::ios::trunc | std::ios::out);
-      watchedReceiversOutput << rcvs_size_ << ";" << num_sample_ << std::endl;
-
-      for (int i = 0; i < rcvs_size_; i++)
-      {
-        auto rcv_coord = rcvs_coord_[i];
-        watchedReceiversOutput << rcv_coord[0] << ";" << rcv_coord[1] << ";"
-                               << rcv_coord[2] << std::endl;
-        for (int j = 0; j < num_sample_; j++)
-        {
-          watchedReceiversOutput << pnAtReceiver(i, j);
-          if (j + 1 < num_sample_) watchedReceiversOutput << ";";
-          // we always add `\n` even if it's the last receiver, as POSIX
-          // compliance is the key for an healthy life
-          else
-            watchedReceiversOutput << std::endl;
-        }
-      }
-      watchedReceiversOutput.close();
+      save_watched_receivers_output_plain();
     }
   }
 
@@ -492,4 +437,67 @@ float SEMproxy::find_cfl_dt(float cfl_factor)
   float dt = cfl_factor * min_spacing / (sqrtDim3 * v_max);
 
   return dt;
+}
+
+void SEMproxy::save_watched_receivers_output_bin()
+{
+  /*
+   * <HEADER>
+   * <rcvs_coord_.dump><pnAtReceiver.dump>
+   *
+   * with <HEADER> being two integers, nb_receivers and
+   * nb_samples_per_receiver.
+   */
+  std::ofstream watchedReceiversOutput(
+      watchedReceiversOutputPath,
+      std::ios::trunc | std::ios::out | std::ios::binary);
+  // first we write the header
+  watchedReceiversOutput.write(reinterpret_cast<char*>(&rcvs_size_),
+                               sizeof(int));
+  watchedReceiversOutput.write(reinterpret_cast<char*>(&num_sample_),
+                               sizeof(int));
+  // then we dump rcvs_coord_
+  watchedReceiversOutput.write(
+      reinterpret_cast<char*>(rcvs_coord_.data()),
+      sizeof(std::array<float, 3>) * rcvs_coord_.size());
+  // and finally the sample array
+  watchedReceiversOutput.write(
+      reinterpret_cast<char*>(pnAtReceiver.data()),
+      sizeof(float) * pnAtReceiver.size());  // pnAtReceiver.size() is the full
+                                             // array size, not one single dim
+  watchedReceiversOutput.close();
+}
+
+void SEMproxy::save_watched_receivers_output_plain()
+{ /*
+   * plaintext format will be fairly simply:
+   * nb_receivers;nb_samples_per_receiver
+   * coords_rcv_1
+   * result_rcv_1_1;result_rcv_1_2;result_rcv_1_3(...)result_rcv_1_{nb_samples_per_receiver}
+   * coords_rcv_2
+   * result_rcv_2_1;result_rcv_2_2;result_rcv_2_3(...)result_rcv_2_{nb_samples_per_receiver}
+   * (...)
+   * coords_rcv_{nb_receivers}
+   * result_rcv_{nb_receivers}_1;result_rcv_{nb_receivers}_2;(...)result_rcv_{nb_receivers}_{nb_samples_per_receiver}
+   */
+  std::ofstream watchedReceiversOutput(watchedReceiversOutputPath,
+                                       std::ios::trunc | std::ios::out);
+  watchedReceiversOutput << rcvs_size_ << ";" << num_sample_ << std::endl;
+
+  for (int i = 0; i < rcvs_size_; i++)
+  {
+    auto rcv_coord = rcvs_coord_[i];
+    watchedReceiversOutput << rcv_coord[0] << ";" << rcv_coord[1] << ";"
+                           << rcv_coord[2] << std::endl;
+    for (int j = 0; j < num_sample_; j++)
+    {
+      watchedReceiversOutput << pnAtReceiver(i, j);
+      if (j + 1 < num_sample_) watchedReceiversOutput << ";";
+      // we always add `\n` even if it's the last receiver, as POSIX
+      // compliance is the key for an healthy life
+      else
+        watchedReceiversOutput << std::endl;
+    }
+  }
+  watchedReceiversOutput.close();
 }

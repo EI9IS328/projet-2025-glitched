@@ -140,6 +140,10 @@ class SEMproxy
   SolverFactory::implemType getImplem(string implemArg);
   SolverFactory::methodType getMethod(string methodArg);
   SolverFactory::meshType getMesh(string meshArg);
+
+  // private methods to dump receivers data
+  void save_watched_receivers_output_bin();
+  void save_watched_receivers_output_plain();
 };
 
 #endif /* SEMPROXY_HPP_ */
