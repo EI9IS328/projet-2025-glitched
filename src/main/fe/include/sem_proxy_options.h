@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdio>
 #include <cxxopts.hpp>
 #include <filesystem>
 #include <fstream>
