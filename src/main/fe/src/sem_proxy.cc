@@ -359,6 +359,8 @@ void SEMproxy::init_source()
       }
     }
 
+    // TODO: ask if it's normal to always rely on the same rhsWeights (follow up
+    // in source_and_receiver_utils.h:41)
     switch (order)
     {
       case 1:

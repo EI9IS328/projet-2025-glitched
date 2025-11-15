@@ -39,6 +39,8 @@ void ComputeRHSWeights(real_t const (&cornerCoords)[8][3],
                                                                    N);
   for (int i = 0; i < numNodes; i++)
   {
+    // TODO: if it ain't normal, then we need to take the rhsElementRcv index
+    // argument on the template signature and use it there
     rhsWeights(0, i) = N[i];
   }
 }
