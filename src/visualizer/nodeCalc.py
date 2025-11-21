@@ -1,0 +1,42 @@
+import os
+
+global ex, ey, order
+
+nx = order * ex + 1
+ny = order * ey + 1
+nz = order * ez + 1
+
+def globalNodeIndex(el, i, j, k):
+    elemZ = el // (ex * ey)
+    tmp = el % (ex * ey)
+    elemY = tmp // ex
+    elemX = tmp % ex
+
+    ix = elemX * order + i
+    iy = elemY * order + j
+    iz = elemZ * order + k
+
+    return ix + iy * nx + iz * nx * ny
+
+
+def getSnapshotData(iter):
+    iterData = {}
+    iter = str(iter)
+    file = "snapshot" + iter + ".bin"
+    dir = os.path.dirname(__file__)
+    path = os.path.normpath(os.path.join(dir, '..', '..', "snapshot", file))
+    with open(file=path, newline='') as snapshot:
+        el = 0
+        for row in snapshot:
+            nodeIdx = 0
+            for elrow in row:
+                nodes = elrow.split(",")
+                for nodePrs in nodes:
+                    x = nodeIdx % (order + 1)
+                    y = (nodeIdx // (order + 1)) % (order + 1)
+                    z = nodeIdx // ( (order + 1) * (order + 1)) 
+                    iterData[globalNodeIndex(el,x,y,z)] = nodePrs
+    return nodePrs
+
+
+                
