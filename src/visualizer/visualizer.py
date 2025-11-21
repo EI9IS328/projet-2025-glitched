@@ -35,7 +35,11 @@ def surface3d(nodes):
     ny = np.arange(nodeCalc.order * nodeCalc.ey + 1)
     Xg, Yg = np.meshgrid(nx, ny)
 
+    min_val = min(np.min(np.array(getSlice(nodes, Z))) for Z in Zlevels)
+    max_val = max(np.max(np.array(getSlice(nodes, Z))) for Z in Zlevels)
 
+    norm = colors.SymLogNorm(linthresh=1e-10, linscale=1, vmin=min_val, vmax=max_val)
+    cmap = plt.cm.viridis
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
@@ -43,20 +47,29 @@ def surface3d(nodes):
     for z in Zlevels:
         Pi = getSlice(nodes, z)
         Pi = np.array(Pi)
+        Zg = np.full_like(Pi, z)
+        facecolors = cmap(norm(Pi))
 
-        ax.contourf(
-            Xg, Yg, np.full_like(Pi, z), 
-            Pi,
-            zdir='z',
-            offset=z,
-            levels=20,
-            cmap='viridis'
+        ax.plot_surface(
+            Xg, Yg, Zg,
+            facecolors=facecolors,
+            rstride=1,
+            cstride=1,
+            shade=False  
         )
+
+    mappable = plt.cm.ScalarMappable(norm=norm, cmap=cmap)
+    mappable.set_array([])  # required
+    plt.colorbar(mappable, ax=ax, shrink=0.5, pad=0.1)
+
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
 
     plt.show()
 
 if __name__ == "__main__":
-    values = nodeCalc.getSnapshotData(1200)
+    values = nodeCalc.getSnapshotData(600)
     surface3d(values)
     # matrix = getSlice(values, 1)
     # heatmap(matrix)

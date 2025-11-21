@@ -2,7 +2,7 @@ import os
 
 ex = 10
 ey = 10
-ez = 1
+ez = 10
 order = 2
 
 
