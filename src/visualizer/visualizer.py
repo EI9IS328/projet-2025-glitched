@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
+import numpy as np
 import nodeCalc
 
 def getSlice(nodes, z):
@@ -13,11 +14,13 @@ def getSlice(nodes, z):
 
 
 def heatmap(slice):
-    colors_list = ['#0099ff', '#33cc33']
-    cmap = colors.ListedColormap(colors_list)
+
+    min_val = min(min(row) for row in slice)
+    max_val = max(max(row) for row in slice)
+
     plt.imshow(slice, \
                norm=colors.SymLogNorm(linthresh=1e-10, \
-               linscale=1, vmin=-1e20, vmax=1e20))
+               linscale=1, vmin=min_val, vmax=max_val))
     plt.colorbar()
 
     plt.title("Customized heatmap with annotations")
@@ -25,8 +28,36 @@ def heatmap(slice):
     plt.ylabel("Y-axis")
     plt.show()
 
+def surface3d(nodes):
+    Zlevels = [i for i in range(nodeCalc.ez * nodeCalc.order + 1)]
+
+    nx = np.arange(nodeCalc.order * nodeCalc.ex + 1)
+    ny = np.arange(nodeCalc.order * nodeCalc.ey + 1)
+    Xg, Yg = np.meshgrid(nx, ny)
+
+
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    for z in Zlevels:
+        Pi = getSlice(nodes, z)
+        Pi = np.array(Pi)
+
+        ax.contourf(
+            Xg, Yg, np.full_like(Pi, z), 
+            Pi,
+            zdir='z',
+            offset=z,
+            levels=20,
+            cmap='viridis'
+        )
+
+    plt.show()
+
 if __name__ == "__main__":
-    values = nodeCalc.getSnapshotData(500)
-    matrix = getSlice(values, 1)
-    heatmap(matrix)
+    values = nodeCalc.getSnapshotData(1200)
+    surface3d(values)
+    # matrix = getSlice(values, 1)
+    # heatmap(matrix)
 
