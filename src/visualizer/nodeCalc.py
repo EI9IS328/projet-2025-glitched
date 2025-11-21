@@ -1,7 +1,7 @@
 import os
 
-ex = 2
-ey = 1
+ex = 10
+ey = 10
 ez = 1
 order = 2
 
