@@ -16,9 +16,14 @@
 
 #include <memory>
 #include <string>
-#include <variant>
 
 #include "sem_proxy_options.h"
+
+enum WatchedReceiversOutputFormat
+{
+  BIN,
+  PLAIN,
+};
 
 /**
  * @class SEMproxy
@@ -35,7 +40,7 @@ class SEMproxy
   /**
    * @brief Destructor of the SEMproxy class
    */
-  ~SEMproxy(){};
+  ~SEMproxy() {};
 
   /**
    * @brief Initialize the simulation.
@@ -85,7 +90,8 @@ class SEMproxy
   int nb_elements_[3] = {0};
   int nb_nodes_[3] = {0};
   std::array<float, 3> src_coord_ = {0};
-  std::array<float, 3> rcv_coord_ = {0};
+  std::vector<std::array<float, 3>> rcvs_coord_;
+  int rcvs_size_;
   float domain_size_[3] = {0};
 
   // snapshots
@@ -119,6 +125,10 @@ class SEMproxy
   arrayReal rhsWeightsRcv;
   arrayReal pnAtReceiver;
 
+  // watched receivers output
+  bool saveWatchedReceiversOutput = false;
+  std::string watchedReceiversOutputPath;
+  WatchedReceiversOutputFormat watchedReceiversOutputFormat;
   // initialize source and RHS
   void init_source();
 
@@ -130,6 +140,10 @@ class SEMproxy
   SolverFactory::implemType getImplem(string implemArg);
   SolverFactory::methodType getMethod(string methodArg);
   SolverFactory::meshType getMesh(string meshArg);
+
+  // private methods to dump receivers data
+  void save_watched_receivers_output_bin();
+  void save_watched_receivers_output_plain();
 };
 
 #endif /* SEMPROXY_HPP_ */
