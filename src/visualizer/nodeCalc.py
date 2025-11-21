@@ -1,6 +1,9 @@
 import os
 
-global ex, ey, order
+ex = 2
+ey = 1
+ez = 1
+order = 2
 
 nx = order * ex + 1
 ny = order * ey + 1
@@ -29,14 +32,16 @@ def getSnapshotData(iter):
         el = 0
         for row in snapshot:
             nodeIdx = 0
-            for elrow in row:
-                nodes = elrow.split(",")
-                for nodePrs in nodes:
-                    x = nodeIdx % (order + 1)
-                    y = (nodeIdx // (order + 1)) % (order + 1)
-                    z = nodeIdx // ( (order + 1) * (order + 1)) 
-                    iterData[globalNodeIndex(el,x,y,z)] = nodePrs
-    return nodePrs
+            nodes = row.split(",")
+            for nodePrs in nodes:
+                nodePrs = nodePrs.replace("\n", "")
+                nodeIdx += 1
+                x = nodeIdx % (order + 1)
+                y = (nodeIdx // (order + 1)) % (order + 1)
+                z = nodeIdx // ( (order + 1) * (order + 1)) 
+                iterData[globalNodeIndex(el,x,y,z)] = nodePrs
+            el+=1
+    return iterData
 
 
                 
