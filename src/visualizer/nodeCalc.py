@@ -5,6 +5,7 @@ ey = 1
 ez = 1
 order = 2
 
+
 nx = order * ex + 1
 ny = order * ey + 1
 nz = order * ez + 1
@@ -43,5 +44,15 @@ def getSnapshotData(iter):
             el+=1
     return iterData
 
+def nodeCoord(globalIdx):
+    nodesPerDim = [ex * order + 1 , ey * order + 1, ez * order + 1]
+    
+    k = globalIdx // (nodesPerDim[0] * nodesPerDim[1])
+    remainder = globalIdx % (nodesPerDim[0] * nodesPerDim[1])
+    j = remainder // nodesPerDim[0]
+    i = remainder % nodesPerDim[0]
 
-                
+    nodeIdx = [i, j, k]
+
+    return nodeIdx
+
