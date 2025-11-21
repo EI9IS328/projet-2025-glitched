@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <cxxopts.hpp>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <ostream>
 #include <string>
@@ -47,6 +48,13 @@ SEMproxy::SEMproxy(const SemProxyOptions& opt)
   isElastic_ = opt.isElastic;
   cout << boolalpha;
   bool isElastic = isElastic_;
+
+  snapshot_folder_ = opt.snapshot_folder_path;
+  snapshot_iterations_interval_ = opt.snapshot_interval;
+  if (opt.snapshot_folder_path.length() > 0)
+  {
+    should_snapshot_ = true;
+  }
 
   const SolverFactory::methodType methodType = getMethod(opt.method);
   const SolverFactory::implemType implemType = getImplem(opt.implem);
@@ -191,6 +199,50 @@ void SEMproxy::run()
     {
       m_solver->outputSolutionValues(indexTimeSample, i1, rhsElement[0],
                                      pnGlobal, "pnGlobal");
+    }
+
+    if (should_snapshot_ && indexTimeSample % snapshot_iterations_interval_ == 0)
+    {
+      // create path string
+      std::ostringstream stringStream;
+      stringStream << snapshot_folder_;
+      stringStream << "/snapshot";
+      stringStream << indexTimeSample;
+      stringStream << ".bin";
+      std::string snapshot_file_path = stringStream.str();
+
+      std::cout << "snapshoting at " << snapshot_file_path << std::endl;
+
+      // open snapshot file
+      ofstream snapshot_file;
+      snapshot_file.open(snapshot_file_path);
+#ifdef BINARY_SNAPSHOTS
+      snapshot_file.write(reinterpret_cast<char*>(solverData.m_pnGlobal.data()),
+                          solverData.m_pnGlobal.size() * sizeof(float));
+#else
+      int dim = m_mesh->getOrder() + 1;
+      for (int elementNumber = 0; elementNumber < m_mesh->getNumberOfElements();
+           elementNumber++)
+      {
+        for (int i = 0; i < m_mesh->getNumberOfPointsPerElement(); ++i)
+        {
+          int x = i % dim;
+          int z = (i / dim) % dim;
+          int y = i / (dim * dim);
+          int const globalIdx = m_mesh->globalNodeIndex(elementNumber, x, y, z);
+          snapshot_file << solverData.m_pnGlobal(globalIdx, i2);
+
+          if (i != m_mesh->getNumberOfPointsPerElement() -
+                       1)  // if not last point of the element
+          {
+            snapshot_file << ",";
+          }
+        }
+        snapshot_file << std::endl;
+      }
+#endif
+
+      snapshot_file.close();
     }
 
     // Save pressure for every receiver
