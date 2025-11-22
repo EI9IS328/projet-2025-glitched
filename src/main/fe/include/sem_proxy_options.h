@@ -36,7 +36,19 @@ class SemProxyOptions
   std::string watchedReceiversListPath = "";
   std::string watchedReceiversOutputPath = "";
   std::string watchedReceiversOutputFormat = "bin";
+  // save code measures reports
+  std::string saveReport = "";
 
+  void _testFile(std::string filePath)
+  {
+    std::ofstream file(filePath, std::ios::out | std::ios::trunc);
+    if (file.fail())
+    {
+      throw std::runtime_error("Couldn't create file at path " + filePath);
+    }
+    file.close();
+    std::filesystem::remove(filePath);
+  }
   void validate()
   {
     if (order < 1) throw std::runtime_error("order must be >= 1");
@@ -87,21 +99,17 @@ class SemProxyOptions
     {
       // check the file can be made by actually creating it and removing it
       // right afterwards
-      std::ofstream watchedReceiversOutputFile(watchedReceiversOutputPath,
-                                               std::ios::out | std::ios::trunc);
-      if (watchedReceiversOutputFile.fail())
-      {
-        throw std::runtime_error("Couldn't create file at path " +
-                                 watchedReceiversOutputPath);
-      }
-      watchedReceiversOutputFile.close();
-      std::filesystem::remove(watchedReceiversOutputPath);
+      _testFile(watchedReceiversOutputPath);
     }
     if (watchedReceiversOutputFormat != "bin" &&
         watchedReceiversOutputFormat != "plain")
     {
       throw std::runtime_error("Format " + watchedReceiversOutputFormat +
                                " not recognized");
+    }
+    if (!saveReport.empty())
+    {
+      _testFile(saveReport);
     }
   }
 
@@ -155,6 +163,8 @@ class SemProxyOptions
         cxxopts::value<std::string>(o.watchedReceiversOutputPath))(
         "output-receivers-format",
         "Format for the output receivers data to be saved at. bin|plain",
-        cxxopts::value<std::string>(o.watchedReceiversOutputFormat));
+        cxxopts::value<std::string>(o.watchedReceiversOutputFormat))(
+        "output-measures", "Path of file for saving code measures",
+        cxxopts::value<std::string>(o.saveReport));
   }
 };

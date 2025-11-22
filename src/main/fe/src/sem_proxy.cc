@@ -162,6 +162,11 @@ SEMproxy::SEMproxy(const SemProxyOptions& opt)
         opt.watchedReceiversOutputFormat == "bin" ? BIN : PLAIN;
   }
 
+  if (!opt.saveReport.empty())
+  {
+    saveReportPath = opt.saveReport;
+  }
+
   initFiniteElem();
 
   std::cout << "Number of node is " << m_mesh->getNumberOfNodes() << std::endl;
@@ -295,6 +300,13 @@ void SEMproxy::run()
   metrics.stopClockAndAppend(Global);
 
   cout << metrics;
+  if (saveReportPath)
+  {
+    std::ofstream output(saveReportPath.value(),
+                         std::ios::trunc | std::ios::out);
+    output << metrics;
+    output.close();
+  }
 }
 
 // Initialize arrays

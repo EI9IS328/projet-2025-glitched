@@ -7,10 +7,6 @@
 #include <sstream>
 #include <stdexcept>
 
-#include "sem_proxy.h"
-
-#define TODO(msg) (throw std::runtime_error(msg " not implemented"));
-
 Measure::Measure()
 {
   m_clock_measures =
@@ -102,38 +98,44 @@ std::ostream& operator<<(std::ostream& os, Measure& metrics)
   float totalBytes = metrics.getTotalBytes();
   auto detailedBytes = metrics.getDetailedBytes();
 
-  os << "------------------------------------------------ " << std::endl;
-  os << "\n---- Time Kernel Total : " << kerneltime_ms / 1E6 << " seconds."
+  os << "------------------------------------------------" << std::endl;
+  os << "---- Time Kernel Total : " << kerneltime_ms / 1E6 << " seconds."
      << std::endl;
-  os << "------------------------------------------------ " << std::endl;
-
-  os << "------------------------------------------------ " << std::endl;
-  os << "\n---- Time Spent Simulating : " << simtime_ms / 1E6 << " seconds."
+  os << "------------------------------------------------" << std::endl
      << std::endl;
-  os << "------------------------------------------------ " << std::endl;
 
-  os << "------------------------------------------------ " << std::endl;
-  os << "\n---- Time Making and Saving Snapshots : " << make_snapshots_ms / 1E6
+  os << "------------------------------------------------" << std::endl;
+  os << "---- Time Spent Simulating : " << simtime_ms / 1E6 << " seconds."
+     << std::endl;
+  os << "------------------------------------------------" << std::endl
+     << std::endl;
+
+  os << "------------------------------------------------" << std::endl;
+  os << "---- Time Making and Saving Snapshots : " << make_snapshots_ms / 1E6
      << " seconds." << std::endl;
-  os << "------------------------------------------------ " << std::endl;
-
-  os << "------------------------------------------------ " << std::endl;
-  os << "\n---- Time Making Sismos : " << make_sismos_ms / 1E6 << " seconds."
+  os << "------------------------------------------------" << std::endl
      << std::endl;
-  os << "------------------------------------------------ " << std::endl;
 
-  os << "------------------------------------------------ " << std::endl;
-  os << "\n---- Time Saving Outputs : " << make_output_sismos / 1E6
-     << " seconds." << std::endl;
-  os << "------------------------------------------------ " << std::endl;
+  os << "------------------------------------------------" << std::endl;
+  os << "---- Time Making Sismos : " << make_sismos_ms / 1E6 << " seconds."
+     << std::endl;
+  os << "------------------------------------------------" << std::endl
+     << std::endl;
 
-  os << "------------------------------------------------ " << std::endl;
-  os << "\n---- Total written data: " << totalBytes << " Bytes." << std::endl;
-  os << "------------------------------------------------ " << std::endl;
+  os << "------------------------------------------------" << std::endl;
+  os << "---- Time Saving Outputs : " << make_output_sismos / 1E6 << " seconds."
+     << std::endl;
+  os << "------------------------------------------------" << std::endl
+     << std::endl;
 
-  os << "------------------------------------------------ " << std::endl;
-  os << "\n---- Detail: ";
-  os << "------------------------------------------------ " << std::endl;
+  os << "------------------------------------------------" << std::endl;
+  os << "---- Total written data: " << totalBytes << " Bytes." << std::endl;
+  os << "------------------------------------------------" << std::endl
+     << std::endl;
+
+  os << "------------------------------------------------" << std::endl;
+  os << "---- Detail:" << std::endl;
+  os << "------------------------------------------------" << std::endl;
   for (auto kv : detailedBytes)
   {
     auto key = kv.first;

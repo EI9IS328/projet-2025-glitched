@@ -15,6 +15,7 @@
 #include <utils.h>
 
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "measure.h"
@@ -130,6 +131,8 @@ class SEMproxy
   bool saveWatchedReceiversOutput = false;
   std::string watchedReceiversOutputPath;
   WatchedReceiversOutputFormat watchedReceiversOutputFormat;
+  // save code measure reports
+  std::optional<std::string> saveReportPath = std::nullopt;
   // initialize source and RHS
   void init_source();
 
