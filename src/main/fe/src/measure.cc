@@ -141,7 +141,7 @@ std::ostream& operator<<(std::ostream& os, Measure& metrics)
     auto key = kv.first;
     auto value = kv.second;
 
-    os << "--- " << key << ": " << value << " Bytes" << std::endl;
+    os << "--- " << key << ": " << value << " Bytes." << std::endl;
   }
   return os;
 }
