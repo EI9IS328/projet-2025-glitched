@@ -17,6 +17,7 @@
 #include <memory>
 #include <string>
 
+#include "metrics.h"
 #include "sem_proxy_options.h"
 
 enum WatchedReceiversOutputFormat
@@ -142,8 +143,8 @@ class SEMproxy
   SolverFactory::meshType getMesh(string meshArg);
 
   // private methods to dump receivers data
-  void save_watched_receivers_output_bin();
-  void save_watched_receivers_output_plain();
+  void save_watched_receivers_output_bin(Metrics& metrics);
+  void save_watched_receivers_output_plain(Metrics& metrics);
 };
 
 #endif /* SEMPROXY_HPP_ */
