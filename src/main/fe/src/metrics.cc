@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <iostream>
 #include <optional>
+#include <ostream>
 #include <sstream>
 #include <stdexcept>
 
@@ -83,11 +84,62 @@ const std::map<std::string, std::size_t> Metrics::getDetailedBytes()
 
 std::size_t Metrics::getTotalBytes()
 {
-  std::cout << " wtf " << m_io_measures.size() << std::endl;
   std::size_t ttl = 0;
   for (auto kv : m_io_measures)
   {
     ttl += kv.second;
   }
   return ttl;
+}
+
+std::ostream& operator<<(std::ostream& os, Metrics& metrics)
+{
+  float kerneltime_ms = metrics.getTimeMs(Global);
+  float simtime_ms = metrics.getTimeMs(Kernel);
+  float make_snapshots_ms = metrics.getTimeMs(MakeSnapshots);
+  float make_sismos_ms = metrics.getTimeMs(MakeSismos);
+  float make_output_sismos = metrics.getTimeMs(OutputSismos);
+  float totalBytes = metrics.getTotalBytes();
+  auto detailedBytes = metrics.getDetailedBytes();
+
+  os << "------------------------------------------------ " << std::endl;
+  os << "\n---- Time Kernel Total : " << kerneltime_ms / 1E6 << " seconds."
+     << std::endl;
+  os << "------------------------------------------------ " << std::endl;
+
+  os << "------------------------------------------------ " << std::endl;
+  os << "\n---- Time Spent Simulating : " << simtime_ms / 1E6 << " seconds."
+     << std::endl;
+  os << "------------------------------------------------ " << std::endl;
+
+  os << "------------------------------------------------ " << std::endl;
+  os << "\n---- Time Making and Saving Snapshots : " << make_snapshots_ms / 1E6
+     << " seconds." << std::endl;
+  os << "------------------------------------------------ " << std::endl;
+
+  os << "------------------------------------------------ " << std::endl;
+  os << "\n---- Time Making Sismos : " << make_sismos_ms / 1E6 << " seconds."
+     << std::endl;
+  os << "------------------------------------------------ " << std::endl;
+
+  os << "------------------------------------------------ " << std::endl;
+  os << "\n---- Time Saving Outputs : " << make_output_sismos / 1E6
+     << " seconds." << std::endl;
+  os << "------------------------------------------------ " << std::endl;
+
+  os << "------------------------------------------------ " << std::endl;
+  os << "\n---- Total written data: " << totalBytes << " Bytes." << std::endl;
+  os << "------------------------------------------------ " << std::endl;
+
+  os << "------------------------------------------------ " << std::endl;
+  os << "\n---- Detail: ";
+  os << "------------------------------------------------ " << std::endl;
+  for (auto kv : detailedBytes)
+  {
+    auto key = kv.first;
+    auto value = kv.second;
+
+    os << "--- " << key << ": " << value << " Bytes" << std::endl;
+  }
+  return os;
 }

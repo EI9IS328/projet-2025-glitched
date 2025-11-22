@@ -294,53 +294,7 @@ void SEMproxy::run()
   }
   metrics.stopClockAndAppend(Global);
 
-  float kerneltime_ms = metrics.getTimeMs(Global);
-  float simtime_ms = metrics.getTimeMs(Kernel);
-  float make_snapshots_ms = metrics.getTimeMs(MakeSnapshots);
-  float make_sismos_ms = metrics.getTimeMs(MakeSismos);
-  float make_output_sismos = metrics.getTimeMs(OutputSismos);
-  float totalBytes = metrics.getTotalBytes();
-  auto detailedBytes = metrics.getDetailedBytes();
-
-  cout << "------------------------------------------------ " << endl;
-  cout << "\n---- Time Kernel Total : " << kerneltime_ms / 1E6 << " seconds."
-       << endl;
-  cout << "------------------------------------------------ " << endl;
-
-  cout << "------------------------------------------------ " << endl;
-  cout << "\n---- Time Spent Simulating : " << simtime_ms / 1E6 << " seconds."
-       << endl;
-  cout << "------------------------------------------------ " << endl;
-
-  cout << "------------------------------------------------ " << endl;
-  cout << "\n---- Time Making and Saving Snapshots : "
-       << make_snapshots_ms / 1E6 << " seconds." << endl;
-  cout << "------------------------------------------------ " << endl;
-
-  cout << "------------------------------------------------ " << endl;
-  cout << "\n---- Time Making Sismos : " << make_sismos_ms / 1E6 << " seconds."
-       << endl;
-  cout << "------------------------------------------------ " << endl;
-
-  cout << "------------------------------------------------ " << endl;
-  cout << "\n---- Time Saving Outputs : " << make_output_sismos / 1E6
-       << " seconds." << endl;
-  cout << "------------------------------------------------ " << endl;
-
-  cout << "------------------------------------------------ " << endl;
-  cout << "\n---- Total written data: " << totalBytes << " Bytes." << endl;
-  cout << "------------------------------------------------ " << endl;
-
-  cout << "------------------------------------------------ " << endl;
-  cout << "\n---- Detail: ";
-  cout << "------------------------------------------------ " << endl;
-  for (auto kv : detailedBytes)
-  {
-    auto key = kv.first;
-    auto value = kv.second;
-
-    cout << "--- " << key << ": " << value << " Bytes" << endl;
-  }
+  cout << metrics;
 }
 
 // Initialize arrays
@@ -587,8 +541,6 @@ void SEMproxy::save_watched_receivers_output_plain(Metrics& metrics)
       if (j + 1 < num_sample_) watchedReceiversOutput << ";";
       // we always add `\n` even if it's the last receiver, as POSIX
       // compliance is the key for an healthy life
-      else
-        watchedReceiversOutput << std::endl << " wtf ";
     }
   }
   watchedReceiversOutput.close();

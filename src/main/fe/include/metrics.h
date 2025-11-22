@@ -1,6 +1,7 @@
-#include <cstddef>
+#include <ostream>
 #ifndef METRICS_HPP_
 #include <chrono>
+#include <cstddef>
 #include <map>
 #include <optional>
 #include <string>
@@ -25,6 +26,7 @@ class Metrics
   float getTimeMs(MeasurePoint measuredPoint);
   std::size_t getTotalBytes();
   const std::map<std::string, std::size_t> getDetailedBytes();
+  friend std::ostream& operator<<(std::ostream& os, Metrics& metrics);
 
  private:
   std::map<MeasurePoint, std::chrono::time_point<std::chrono::system_clock>>
