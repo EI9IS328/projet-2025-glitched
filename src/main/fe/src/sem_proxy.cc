@@ -216,11 +216,44 @@ void SEMproxy::run()
       // open snapshot file
       ofstream snapshot_file;
       snapshot_file.open(snapshot_file_path);
-#ifdef BINARY_SNAPSHOTS
-      snapshot_file.write(reinterpret_cast<char*>(solverData.m_pnGlobal.data()),
-                          solverData.m_pnGlobal.size() * sizeof(float));
-#else
+// #ifdef BINARY_SNAPSHOTS
+//       snapshot_file.write(reinterpret_cast<char*>(solverData.m_pnGlobal.data()),
+//                           solverData.m_pnGlobal.size() * sizeof(float));
+// #else
       int dim = m_mesh->getOrder() + 1;
+//       for (int elementNumber = 0; elementNumber < m_mesh->getNumberOfElements();
+//            elementNumber++)
+//       {
+//         for (int i = 0; i < m_mesh->getNumberOfPointsPerElement(); ++i)
+//         {
+//           int x = i % dim;
+//           int z = (i / dim) % dim;
+//           int y = i / (dim * dim);
+//           int const globalIdx = m_mesh->globalNodeIndex(elementNumber, x, y, z);
+//           snapshot_file << solverData.m_pnGlobal(globalIdx, i2);
+
+//           if (i != m_mesh->getNumberOfPointsPerElement() -
+//                        1)  // if not last point of the element
+//           {
+//             snapshot_file << ",";
+//           }
+//         }
+//         snapshot_file << std::endl;
+//       }
+// #endif
+
+#if 1
+      // lock x for a slice view
+      int sliced_dim = 0; // x
+      int slice_pos_along_sliced_dim = domain_size_[sliced_dim] / 2;
+
+      // header is:
+      // sliced_dim
+      // domain_size_x,domain_size_y,domain_size_z
+      // nb_nodes_x,nb_nodes_y,nb_nodes_z
+      snapshot_file << sliced_dim << std::endl;
+      snapshot_file << domain_size_[0] << "," << domain_size_[1] << "," << domain_size_[2] << std::endl;
+      snapshot_file << nb_nodes_[0] << "," << nb_nodes_[1] << "," << nb_nodes_[2] << std::endl;
       for (int elementNumber = 0; elementNumber < m_mesh->getNumberOfElements();
            elementNumber++)
       {
@@ -229,17 +262,22 @@ void SEMproxy::run()
           int x = i % dim;
           int z = (i / dim) % dim;
           int y = i / (dim * dim);
-          int const globalIdx = m_mesh->globalNodeIndex(elementNumber, x, y, z);
-          snapshot_file << solverData.m_pnGlobal(globalIdx, i2);
 
-          if (i != m_mesh->getNumberOfPointsPerElement() -
-                       1)  // if not last point of the element
-          {
-            snapshot_file << ",";
+          const int globalIdx = m_mesh->globalNodeIndex(elementNumber, x, y, z);
+
+          float global_coords[3];
+          global_coords[0] = m_mesh->nodeCoord(globalIdx, 0);
+          global_coords[1] = m_mesh->nodeCoord(globalIdx, 1);
+          global_coords[2] = m_mesh->nodeCoord(globalIdx, 2);
+
+          if (global_coords[sliced_dim] != slice_pos_along_sliced_dim) { // only get data from the slice
+            continue;
           }
+
+          snapshot_file << global_coords[0] << "," << global_coords[1] << "," << global_coords[2] << "," << solverData.m_pnGlobal(globalIdx, i2) << std::endl;
         }
-        snapshot_file << std::endl;
       }
+
 #endif
 
       snapshot_file.close();
