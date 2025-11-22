@@ -21,6 +21,7 @@ class SemProxyOptions
   std::string method = "sem";     // sem|dg
   std::string mesh = "cartesian";
   std::string snapshot_folder_path = "";
+  std::string snapshot_format = "plain";
   int snapshot_interval = 50;
   float dt = 0.001;
   float timemax = 1.5;
@@ -156,6 +157,8 @@ class SemProxyOptions
         cxxopts::value<std::string>(o.snapshot_folder_path))(
         "snapshot-interval", "Interval to save snapshots at if activated",
         cxxopts::value<int>(o.snapshot_interval))(
+        "snapshot-format", "snapshot format, bin|plain",
+        cxxopts::value<std::string>(o.snapshot_format))(
         "watched-receivers",
         "Path for a list of watchedReceivers to save values from",
         cxxopts::value<std::string>(o.watchedReceiversListPath))(
