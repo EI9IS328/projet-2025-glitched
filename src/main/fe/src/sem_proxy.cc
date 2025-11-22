@@ -251,9 +251,32 @@ void SEMproxy::run()
       // sliced_dim
       // domain_size_x,domain_size_y,domain_size_z
       // nb_nodes_x,nb_nodes_y,nb_nodes_z
-      snapshot_file << sliced_dim << std::endl;
-      snapshot_file << domain_size_[0] << "," << domain_size_[1] << "," << domain_size_[2] << std::endl;
-      snapshot_file << nb_nodes_[0] << "," << nb_nodes_[1] << "," << nb_nodes_[2] << std::endl;
+      // snapshot_file << sliced_dim << std::endl;
+      // snapshot_file << domain_size_[0] << "," << domain_size_[1] << "," << domain_size_[2] << std::endl;
+      // snapshot_file << nb_nodes_[0] << "," << nb_nodes_[1] << "," << nb_nodes_[2] << std::endl;
+
+      int signature = 0xCAFEBABE;
+      snapshot_file.write(reinterpret_cast<char*>(&signature), sizeof(signature));
+      struct header_t {
+        int sliced_dim;
+        float domain_size_x;
+        float domain_size_y;
+        float domain_size_z;
+        int nb_nodes_x;
+        int nb_nodes_y;
+        int nb_nodes_z;
+      };
+      struct header_t hdr = {
+        .sliced_dim = sliced_dim,
+        .domain_size_x = domain_size_[0],
+        .domain_size_y = domain_size_[1],
+        .domain_size_z = domain_size_[2],
+        .nb_nodes_x = nb_nodes_[0],
+        .nb_nodes_y = nb_nodes_[1],
+        .nb_nodes_z = nb_nodes_[2],
+      };
+      snapshot_file.write(reinterpret_cast<char*>(&hdr), sizeof(hdr));
+
       for (int elementNumber = 0; elementNumber < m_mesh->getNumberOfElements();
            elementNumber++)
       {
@@ -273,8 +296,21 @@ void SEMproxy::run()
           if (global_coords[sliced_dim] != slice_pos_along_sliced_dim) { // only get data from the slice
             continue;
           }
+          struct row_t {
+            float x;
+            float y;
+            float z;
+            float value;
+          };
+          struct row_t r = {
+            .x = global_coords[0],
+            .y = global_coords[1],
+            .z = global_coords[2],
+            .value = solverData.m_pnGlobal(globalIdx, i2),
+          };
+          snapshot_file.write(reinterpret_cast<char*>(&r), sizeof(r));
 
-          snapshot_file << global_coords[0] << "," << global_coords[1] << "," << global_coords[2] << "," << solverData.m_pnGlobal(globalIdx, i2) << std::endl;
+          // snapshot_file << global_coords[0] << "," << global_coords[1] << "," << global_coords[2] << "," << solverData.m_pnGlobal(globalIdx, i2) << std::endl;
         }
       }
 
