@@ -16,17 +16,17 @@ enum MeasurePoint
   OutputSismos,
 };
 
-class Metrics
+class Measure
 {
  public:
-  Metrics();
+  Measure();
   void measureIO(std::string closedFilePath);
   void startClock(MeasurePoint measuredPoint);
   void stopClockAndAppend(MeasurePoint measuredPoint);
   float getTimeMs(MeasurePoint measuredPoint);
   std::size_t getTotalBytes();
   const std::map<std::string, std::size_t> getDetailedBytes();
-  friend std::ostream& operator<<(std::ostream& os, Metrics& metrics);
+  friend std::ostream& operator<<(std::ostream& os, Measure& metrics);
 
  private:
   std::map<MeasurePoint, std::chrono::time_point<std::chrono::system_clock>>

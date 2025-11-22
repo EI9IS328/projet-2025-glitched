@@ -1,17 +1,17 @@
-#include <metrics.h>
+#include <measure.h>
 
-#include <chrono>
 #include <cstddef>
 #include <filesystem>
 #include <iostream>
-#include <optional>
 #include <ostream>
 #include <sstream>
 #include <stdexcept>
 
+#include "sem_proxy.h"
+
 #define TODO(msg) (throw std::runtime_error(msg " not implemented"));
 
-Metrics::Metrics()
+Measure::Measure()
 {
   m_clock_measures =
       std::map<MeasurePoint,
@@ -39,7 +39,7 @@ Metrics::Metrics()
   m_running_clocks.insert({OutputSismos, std::nullopt});
 }
 
-void Metrics::measureIO(std::string closedFilePath)
+void Measure::measureIO(std::string closedFilePath)
 {
   if (!std::filesystem::exists(closedFilePath))
   {
@@ -51,7 +51,7 @@ void Metrics::measureIO(std::string closedFilePath)
       {closedFilePath, std::filesystem::file_size(closedFilePath)});
 }
 
-void Metrics::startClock(MeasurePoint measuredPoint)
+void Measure::startClock(MeasurePoint measuredPoint)
 {
   if (!m_running_clocks[measuredPoint].has_value())
   {
@@ -59,7 +59,7 @@ void Metrics::startClock(MeasurePoint measuredPoint)
   }
 }
 
-void Metrics::stopClockAndAppend(MeasurePoint measuredPoint)
+void Measure::stopClockAndAppend(MeasurePoint measuredPoint)
 {
   if (m_running_clocks[measuredPoint].has_value())
   {
@@ -69,7 +69,7 @@ void Metrics::stopClockAndAppend(MeasurePoint measuredPoint)
   }
 }
 
-float Metrics::getTimeMs(MeasurePoint measuredPoint)
+float Measure::getTimeMs(MeasurePoint measuredPoint)
 {
   return std::chrono::time_point_cast<std::chrono::microseconds>(
              m_clock_measures[measuredPoint])
@@ -77,12 +77,12 @@ float Metrics::getTimeMs(MeasurePoint measuredPoint)
       .count();
 }
 
-const std::map<std::string, std::size_t> Metrics::getDetailedBytes()
+const std::map<std::string, std::size_t> Measure::getDetailedBytes()
 {
   return std::map<std::string, std::size_t>(m_io_measures);
 }
 
-std::size_t Metrics::getTotalBytes()
+std::size_t Measure::getTotalBytes()
 {
   std::size_t ttl = 0;
   for (auto kv : m_io_measures)
@@ -92,7 +92,7 @@ std::size_t Metrics::getTotalBytes()
   return ttl;
 }
 
-std::ostream& operator<<(std::ostream& os, Metrics& metrics)
+std::ostream& operator<<(std::ostream& os, Measure& metrics)
 {
   float kerneltime_ms = metrics.getTimeMs(Global);
   float simtime_ms = metrics.getTimeMs(Kernel);

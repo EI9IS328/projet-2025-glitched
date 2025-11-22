@@ -5,7 +5,7 @@ if(COMPILE_SEM)
   add_executable(semproxy
     src/main.cc
     src/sem_proxy.cc
-    src/metrics.cc
+    src/measure.cc
   )
 
   target_include_directories(semproxy

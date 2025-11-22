@@ -142,7 +142,9 @@ class SemProxyOptions
         "(false)",
         cxxopts::value<bool>(o.isModelOnNodes))(
         "is-elastic", "Elastic simulation", cxxopts::value<bool>(o.isElastic))(
-        "snapshot-folder-path", "Path to folder where to save snapshots (activates snapshot when given)",
+        "snapshot-folder-path",
+        "Path to folder where to save snapshots (activates snapshot when "
+        "given)",
         cxxopts::value<std::string>(o.snapshot_folder_path))(
         "snapshot-interval", "Interval to save snapshots at if activated",
         cxxopts::value<int>(o.snapshot_interval))(

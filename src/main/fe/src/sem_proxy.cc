@@ -9,7 +9,7 @@
 
 #include <cartesian_struct_builder.h>
 #include <cartesian_unstruct_builder.h>
-#include <metrics.h>
+#include <measure.h>
 #include <sem_solver_acoustic.h>
 #include <source_and_receiver_utils.h>
 
@@ -180,7 +180,7 @@ SEMproxy::SEMproxy(const SemProxyOptions& opt)
 
 void SEMproxy::run()
 {
-  Metrics metrics;
+  Measure metrics;
   SEMsolverDataAcoustic solverData(i1, i2, myRHSTerm, pnGlobal, rhsElement,
                                    rhsWeights);
 
@@ -483,7 +483,7 @@ float SEMproxy::find_cfl_dt(float cfl_factor)
   return dt;
 }
 
-void SEMproxy::save_watched_receivers_output_bin(Metrics& metrics)
+void SEMproxy::save_watched_receivers_output_bin(Measure& metrics)
 {
   /*
    * <HEADER>
@@ -514,7 +514,7 @@ void SEMproxy::save_watched_receivers_output_bin(Metrics& metrics)
   metrics.getTotalBytes();
 }
 
-void SEMproxy::save_watched_receivers_output_plain(Metrics& metrics)
+void SEMproxy::save_watched_receivers_output_plain(Measure& metrics)
 { /*
    * plaintext format will be fairly simply:
    * nb_receivers;nb_samples_per_receiver
