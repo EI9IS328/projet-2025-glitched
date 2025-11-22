@@ -15,8 +15,10 @@
 #include <utils.h>
 
 #include <memory>
+#include <optional>
 #include <string>
 
+#include "measure.h"
 #include "sem_proxy_options.h"
 
 enum WatchedReceiversOutputFormat
@@ -129,6 +131,8 @@ class SEMproxy
   bool saveWatchedReceiversOutput = false;
   std::string watchedReceiversOutputPath;
   WatchedReceiversOutputFormat watchedReceiversOutputFormat;
+  // save code measure reports
+  std::optional<std::string> saveReportPath = std::nullopt;
   // initialize source and RHS
   void init_source();
 
@@ -142,8 +146,8 @@ class SEMproxy
   SolverFactory::meshType getMesh(string meshArg);
 
   // private methods to dump receivers data
-  void save_watched_receivers_output_bin();
-  void save_watched_receivers_output_plain();
+  void save_watched_receivers_output_bin(Measure& metrics);
+  void save_watched_receivers_output_plain(Measure& metrics);
 };
 
 #endif /* SEMPROXY_HPP_ */
