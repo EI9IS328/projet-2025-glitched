@@ -21,7 +21,7 @@
 #include "measure.h"
 #include "sem_proxy_options.h"
 
-enum WatchedReceiversOutputFormat
+enum OutputFormat
 {
   BIN,
   PLAIN,
@@ -100,6 +100,7 @@ class SEMproxy
   bool should_snapshot_ = false;
   int snapshot_iterations_interval_;
   std::string snapshot_folder_;
+  OutputFormat snapshot_format;
 
   // physics
   bool isElastic_;
@@ -130,7 +131,7 @@ class SEMproxy
   // watched receivers output
   bool saveWatchedReceiversOutput = false;
   std::string watchedReceiversOutputPath;
-  WatchedReceiversOutputFormat watchedReceiversOutputFormat;
+  OutputFormat watchedReceiversOutputFormat;
   // save code measure reports
   std::optional<std::string> saveReportPath = std::nullopt;
   // initialize source and RHS

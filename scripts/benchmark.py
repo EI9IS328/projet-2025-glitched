@@ -30,29 +30,30 @@ def benchmark(
     eys: list[int],
     ezs: list[int],
     orders: list[int],
-    formats: list[str],
+    formats_sismos: list[str],
+    formats_snaps: list[str],
     receivers: list[list[tuple[int, int, int]]],
 ):
     output_file.write(
-        "ex|ey|ez|order|format|receivers|global|kernel|make_snapshots|make_sismos|output_sismos|total_bytes|total_snap_bytes|total_sismos_bytes\n"
+        "ex|ey|ez|order|format_sismos|format_snaps|receivers|global|kernel|make_snapshots|make_sismos|output_sismos|total_bytes|total_snap_bytes|total_sismos_bytes\n"
     )
     tmp_path = os.path.join(output_dir, "tmp")
     if os.path.exists(tmp_path):
         shutil.rmtree(tmp_path)
     os.makedirs(tmp_path, exist_ok=True)
-    combs = [exs, eys, ezs, orders, formats, receivers]
+    combs = [exs, eys, ezs, orders, formats_sismos, formats_snaps, receivers]
     combs_product = list(itertools.product(*combs))
     done = 0
     for comb in combs_product:
         # we set up everything
-        ex, ey, ez, order, format, cur_receivers = comb
+        ex, ey, ez, order, format_sismos, format_snaps, cur_receivers = comb
         param_args = f"--ex {ex} --ey {ey} --ez {ez} -o {order}"
         static_args = "--implem makutu"
         output_receivers = os.path.join(output_dir, "tmp", f"receiver_{done}")
         receivers_file_path = os.path.join(output_dir, "tmp", f"receivers_{done}.txt")
         snaps = os.path.join(output_dir, "tmp", f"snaps_{done}")
         measures = os.path.join(output_dir, f"measures_{done}")
-        files_args = f"--watched-receivers {receivers_file_path} --output-receivers {output_receivers} --output-receivers-format {format} --snapshot-folder-path {snaps} --output-measures {measures}"
+        files_args = f"--watched-receivers {receivers_file_path} --output-receivers {output_receivers} --output-receivers-format {format_sismos} --snapshot-folder-path {snaps} --output-measures {measures} --snapshot-format {format_snaps}"
         cmdline = f"{bin} {param_args} {static_args} {files_args}"
         os.mkdir(snaps)
 
@@ -95,7 +96,7 @@ def benchmark(
                     SNAPSHOT_RECEIVERS_REGEX, measures_file_content
                 )
                 total_snap_bytes = sum(map(lambda x: int(x), snapshots_receiver_data))
-                csv_line = f"{ex}|{ey}|{ez}|{order}|{format}|{len(receivers[0])}|{time_total}|{time_kernel}|{time_snaps}|{time_making_sismos}|{time_saving_sismos}|{total_written_data}|{total_snap_bytes}|{written_receiver_data}\n"
+                csv_line = f"{ex}|{ey}|{ez}|{order}|{format_sismos}|{format_snaps}|{len(receivers[0])}|{time_total}|{time_kernel}|{time_snaps}|{time_making_sismos}|{time_saving_sismos}|{total_written_data}|{total_snap_bytes}|{written_receiver_data}\n"
                 output_file.write(csv_line)
             except Exception as e:
                 print(f"Exception occured: {e}", file=sys.stderr)
@@ -110,10 +111,11 @@ if __name__ == "__main__":
     OUTPUT_DIR = "./exp1"
     OUTPUT_FILE = "result.csv"
     EXS = [10]
-    EYS = [10]
-    EZS = [10]
+    EYS = [5]
+    EZS = [5]
     ORDERS = [1]
-    FORMATS = ["bin", "plain"]
+    FORMATS_SISMOS = ["bin"]
+    FORMATS_SNAPS = ["bin", "plain"]
     RECEIVERS = [
         [(1, 4, 3), (122, 312, 451)],
     ]
@@ -135,6 +137,15 @@ if __name__ == "__main__":
     output_file_path = os.path.join(OUTPUT_DIR, OUTPUT_FILE)
     with open(output_file_path, "w+") as output_file:
         benchmark(
-            BIN, OUTPUT_DIR, output_file, EXS, EYS, EZS, ORDERS, FORMATS, RECEIVERS
+            BIN,
+            OUTPUT_DIR,
+            output_file,
+            EXS,
+            EYS,
+            EZS,
+            ORDERS,
+            FORMATS_SISMOS,
+            FORMATS_SNAPS,
+            RECEIVERS,
         )
     print(f"done. results in {output_file_path}")
