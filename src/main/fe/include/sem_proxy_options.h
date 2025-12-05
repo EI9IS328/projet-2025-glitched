@@ -22,6 +22,7 @@ class SemProxyOptions
   std::string mesh = "cartesian";
   std::string snapshot_folder_path = "";
   int snapshot_interval = 50;
+  bool snapshot_in_situ = false;
   float dt = 0.001;
   float timemax = 1.5;
   bool autodt = false;
@@ -146,6 +147,9 @@ class SemProxyOptions
         cxxopts::value<std::string>(o.snapshot_folder_path))(
         "snapshot-interval", "Interval to save snapshots at if activated",
         cxxopts::value<int>(o.snapshot_interval))(
+        "snapshot-in-situ",
+        "Flag to activate in-situ snapshots, must have snapshots activated",
+        cxxopts::value<bool>(o.snapshot_in_situ))(
         "watched-receivers",
         "Path for a list of watchedReceivers to save values from",
         cxxopts::value<std::string>(o.watchedReceiversListPath))(

@@ -98,6 +98,7 @@ class SEMproxy
   bool should_snapshot_ = false;
   int snapshot_iterations_interval_;
   std::string snapshot_folder_;
+  bool snapshot_in_situ_;
 
   // physics
   bool isElastic_;

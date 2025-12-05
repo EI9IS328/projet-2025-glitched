@@ -51,6 +51,7 @@ SEMproxy::SEMproxy(const SemProxyOptions& opt)
 
   snapshot_folder_ = opt.snapshot_folder_path;
   snapshot_iterations_interval_ = opt.snapshot_interval;
+  snapshot_in_situ_ = opt.snapshot_in_situ;
   if (opt.snapshot_folder_path.length() > 0)
   {
     should_snapshot_ = true;
@@ -201,7 +202,8 @@ void SEMproxy::run()
                                      pnGlobal, "pnGlobal");
     }
 
-    if (should_snapshot_ && indexTimeSample % snapshot_iterations_interval_ == 0)
+    if (should_snapshot_ &&
+        indexTimeSample % snapshot_iterations_interval_ == 0)
     {
       // create path string
       std::ostringstream stringStream;
@@ -216,105 +218,118 @@ void SEMproxy::run()
       // open snapshot file
       ofstream snapshot_file;
       snapshot_file.open(snapshot_file_path);
-// #ifdef BINARY_SNAPSHOTS
-//       snapshot_file.write(reinterpret_cast<char*>(solverData.m_pnGlobal.data()),
-//                           solverData.m_pnGlobal.size() * sizeof(float));
-// #else
       int dim = m_mesh->getOrder() + 1;
-//       for (int elementNumber = 0; elementNumber < m_mesh->getNumberOfElements();
-//            elementNumber++)
-//       {
-//         for (int i = 0; i < m_mesh->getNumberOfPointsPerElement(); ++i)
-//         {
-//           int x = i % dim;
-//           int z = (i / dim) % dim;
-//           int y = i / (dim * dim);
-//           int const globalIdx = m_mesh->globalNodeIndex(elementNumber, x, y, z);
-//           snapshot_file << solverData.m_pnGlobal(globalIdx, i2);
 
-//           if (i != m_mesh->getNumberOfPointsPerElement() -
-//                        1)  // if not last point of the element
-//           {
-//             snapshot_file << ",";
-//           }
-//         }
-//         snapshot_file << std::endl;
-//       }
-// #endif
-
-#if 1
-      // lock x for a slice view
-      int sliced_dim = 0; // x
-      int slice_pos_along_sliced_dim = domain_size_[sliced_dim] / 2;
-
-      // header is:
-      // sliced_dim
-      // domain_size_x,domain_size_y,domain_size_z
-      // nb_nodes_x,nb_nodes_y,nb_nodes_z
-      // snapshot_file << sliced_dim << std::endl;
-      // snapshot_file << domain_size_[0] << "," << domain_size_[1] << "," << domain_size_[2] << std::endl;
-      // snapshot_file << nb_nodes_[0] << "," << nb_nodes_[1] << "," << nb_nodes_[2] << std::endl;
-
-      int signature = 0xCAFEBABE;
-      snapshot_file.write(reinterpret_cast<char*>(&signature), sizeof(signature));
-      struct header_t {
-        int sliced_dim;
-        float domain_size_x;
-        float domain_size_y;
-        float domain_size_z;
-        int nb_nodes_x;
-        int nb_nodes_y;
-        int nb_nodes_z;
-      };
-      struct header_t hdr = {
-        .sliced_dim = sliced_dim,
-        .domain_size_x = domain_size_[0],
-        .domain_size_y = domain_size_[1],
-        .domain_size_z = domain_size_[2],
-        .nb_nodes_x = nb_nodes_[0],
-        .nb_nodes_y = nb_nodes_[1],
-        .nb_nodes_z = nb_nodes_[2],
-      };
-      snapshot_file.write(reinterpret_cast<char*>(&hdr), sizeof(hdr));
-
-      for (int elementNumber = 0; elementNumber < m_mesh->getNumberOfElements();
-           elementNumber++)
+      if (!snapshot_in_situ_)
       {
-        for (int i = 0; i < m_mesh->getNumberOfPointsPerElement(); ++i)
+#ifdef BINARY_SNAPSHOTS
+        snapshot_file.write(
+            reinterpret_cast<char*>(solverData.m_pnGlobal.data()),
+            solverData.m_pnGlobal.size() * sizeof(float));
+#else
+        for (int elementNumber = 0;
+             elementNumber < m_mesh->getNumberOfElements(); elementNumber++)
         {
-          int x = i % dim;
-          int z = (i / dim) % dim;
-          int y = i / (dim * dim);
+          for (int i = 0; i < m_mesh->getNumberOfPointsPerElement(); ++i)
+          {
+            int x = i % dim;
+            int z = (i / dim) % dim;
+            int y = i / (dim * dim);
+            int const globalIdx =
+                m_mesh->globalNodeIndex(elementNumber, x, y, z);
+            snapshot_file << solverData.m_pnGlobal(globalIdx, i2);
 
-          const int globalIdx = m_mesh->globalNodeIndex(elementNumber, x, y, z);
-
-          float global_coords[3];
-          global_coords[0] = m_mesh->nodeCoord(globalIdx, 0);
-          global_coords[1] = m_mesh->nodeCoord(globalIdx, 1);
-          global_coords[2] = m_mesh->nodeCoord(globalIdx, 2);
-
-          if (global_coords[sliced_dim] != slice_pos_along_sliced_dim) { // only get data from the slice
-            continue;
+            if (i != m_mesh->getNumberOfPointsPerElement() -
+                         1)  // if not last point of the element
+            {
+              snapshot_file << ",";
+            }
           }
-          struct row_t {
-            float x;
-            float y;
-            float z;
-            float value;
-          };
-          struct row_t r = {
-            .x = global_coords[0],
-            .y = global_coords[1],
-            .z = global_coords[2],
-            .value = solverData.m_pnGlobal(globalIdx, i2),
-          };
-          snapshot_file.write(reinterpret_cast<char*>(&r), sizeof(r));
+          snapshot_file << std::endl;
+        }
+#endif
+      }
+      else
+      {
+        // lock x for a slice view
+        int sliced_dim = 0;  // x
+        int slice_pos_along_sliced_dim = domain_size_[sliced_dim] / 2;
 
-          // snapshot_file << global_coords[0] << "," << global_coords[1] << "," << global_coords[2] << "," << solverData.m_pnGlobal(globalIdx, i2) << std::endl;
+        // header is:
+        // sliced_dim
+        // domain_size_x,domain_size_y,domain_size_z
+        // nb_nodes_x,nb_nodes_y,nb_nodes_z
+        // snapshot_file << sliced_dim << std::endl;
+        // snapshot_file << domain_size_[0] << "," << domain_size_[1] << "," <<
+        // domain_size_[2] << std::endl; snapshot_file << nb_nodes_[0] << "," <<
+        // nb_nodes_[1] << "," << nb_nodes_[2] << std::endl;
+
+        int signature = 0xCAFEBABE;
+        snapshot_file.write(reinterpret_cast<char*>(&signature),
+                            sizeof(signature));
+        struct header_t
+        {
+          int sliced_dim;
+          float domain_size_x;
+          float domain_size_y;
+          float domain_size_z;
+          int nb_nodes_x;
+          int nb_nodes_y;
+          int nb_nodes_z;
+        };
+        struct header_t hdr = {
+            .sliced_dim = sliced_dim,
+            .domain_size_x = domain_size_[0],
+            .domain_size_y = domain_size_[1],
+            .domain_size_z = domain_size_[2],
+            .nb_nodes_x = nb_nodes_[0],
+            .nb_nodes_y = nb_nodes_[1],
+            .nb_nodes_z = nb_nodes_[2],
+        };
+        snapshot_file.write(reinterpret_cast<char*>(&hdr), sizeof(hdr));
+
+        for (int elementNumber = 0;
+             elementNumber < m_mesh->getNumberOfElements(); elementNumber++)
+        {
+          for (int i = 0; i < m_mesh->getNumberOfPointsPerElement(); ++i)
+          {
+            int x = i % dim;
+            int z = (i / dim) % dim;
+            int y = i / (dim * dim);
+
+            const int globalIdx =
+                m_mesh->globalNodeIndex(elementNumber, x, y, z);
+
+            float global_coords[3];
+            global_coords[0] = m_mesh->nodeCoord(globalIdx, 0);
+            global_coords[1] = m_mesh->nodeCoord(globalIdx, 1);
+            global_coords[2] = m_mesh->nodeCoord(globalIdx, 2);
+
+            if (global_coords[sliced_dim] != slice_pos_along_sliced_dim)
+            {  // only get data from the slice
+              continue;
+            }
+            struct row_t
+            {
+              float x;
+              float y;
+              float z;
+              float value;
+            };
+            struct row_t r = {
+                .x = global_coords[0],
+                .y = global_coords[1],
+                .z = global_coords[2],
+                .value = solverData.m_pnGlobal(globalIdx, i2),
+            };
+            snapshot_file.write(reinterpret_cast<char*>(&r), sizeof(r));
+
+            // snapshot_file << global_coords[0] << "," << global_coords[1] <<
+            // "," << global_coords[2] << "," <<
+            // solverData.m_pnGlobal(globalIdx, i2) << std::endl;
+          }
         }
       }
-
-#endif
 
       snapshot_file.close();
     }
