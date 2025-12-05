@@ -9,13 +9,13 @@
 
 #include <cartesian_struct_builder.h>
 #include <cartesian_unstruct_builder.h>
+#include <measure.h>
 #include <sem_solver_acoustic.h>
 #include <source_and_receiver_utils.h>
 
 #include <algorithm>
 #include <cxxopts.hpp>
 #include <fstream>
-#include <iomanip>
 #include <iostream>
 #include <ostream>
 #include <string>
@@ -163,6 +163,13 @@ SEMproxy::SEMproxy(const SemProxyOptions& opt)
         opt.watchedReceiversOutputFormat == "bin" ? BIN : PLAIN;
   }
 
+  snapshot_format = opt.snapshot_format == "bin" ? BIN : PLAIN;
+
+  if (!opt.saveReport.empty())
+  {
+    saveReportPath = opt.saveReport;
+  }
+
   initFiniteElem();
 
   std::cout << "Number of node is " << m_mesh->getNumberOfNodes() << std::endl;
@@ -181,20 +188,17 @@ SEMproxy::SEMproxy(const SemProxyOptions& opt)
 
 void SEMproxy::run()
 {
-  time_point<system_clock> startComputeTime, startOutputTime, totalComputeTime,
-      totalOutputTime;
-
+  Measure metrics;
   SEMsolverDataAcoustic solverData(i1, i2, myRHSTerm, pnGlobal, rhsElement,
                                    rhsWeights);
 
+  metrics.startClock(Global);
   for (int indexTimeSample = 0; indexTimeSample < num_sample_;
        indexTimeSample++)
   {
-    startComputeTime = system_clock::now();
+    metrics.startClock(Kernel);
     m_solver->computeOneStep(dt_, indexTimeSample, solverData);
-    totalComputeTime += system_clock::now() - startComputeTime;
-
-    startOutputTime = system_clock::now();
+    metrics.stopClockAndAppend(Kernel);
 
     if (indexTimeSample % 50 == 0)
     {
@@ -205,6 +209,7 @@ void SEMproxy::run()
     if (should_snapshot_ &&
         indexTimeSample % snapshot_iterations_interval_ == 0)
     {
+      metrics.startClock(MakeSnapshots);
       // create path string
       std::ostringstream stringStream;
       stringStream << snapshot_folder_;
@@ -222,32 +227,35 @@ void SEMproxy::run()
 
       if (!snapshot_in_situ_)
       {
-#ifdef BINARY_SNAPSHOTS
-        snapshot_file.write(
-            reinterpret_cast<char*>(solverData.m_pnGlobal.data()),
-            solverData.m_pnGlobal.size() * sizeof(float));
-#else
-        for (int elementNumber = 0;
-             elementNumber < m_mesh->getNumberOfElements(); elementNumber++)
+        if (snapshot_format == BIN)
         {
-          for (int i = 0; i < m_mesh->getNumberOfPointsPerElement(); ++i)
-          {
-            int x = i % dim;
-            int z = (i / dim) % dim;
-            int y = i / (dim * dim);
-            int const globalIdx =
-                m_mesh->globalNodeIndex(elementNumber, x, y, z);
-            snapshot_file << solverData.m_pnGlobal(globalIdx, i2);
-
-            if (i != m_mesh->getNumberOfPointsPerElement() -
-                         1)  // if not last point of the element
-            {
-              snapshot_file << ",";
-            }
-          }
-          snapshot_file << std::endl;
+          snapshot_file.write(
+              reinterpret_cast<char*>(solverData.m_pnGlobal.data()),
+              solverData.m_pnGlobal.size() * sizeof(float));
         }
-#endif
+        else
+        {
+          for (int elementNumber = 0;
+               elementNumber < m_mesh->getNumberOfElements(); elementNumber++)
+          {
+            for (int i = 0; i < m_mesh->getNumberOfPointsPerElement(); ++i)
+            {
+              int x = i % dim;
+              int z = (i / dim) % dim;
+              int y = i / (dim * dim);
+              int const globalIdx =
+                  m_mesh->globalNodeIndex(elementNumber, x, y, z);
+              snapshot_file << solverData.m_pnGlobal(globalIdx, i2);
+
+              if (i != m_mesh->getNumberOfPointsPerElement() -
+                           1)  // if not last point of the element
+              {
+                snapshot_file << ",";
+              }
+            }
+            snapshot_file << std::endl;
+          }
+        }
       }
       else
       {
@@ -332,11 +340,14 @@ void SEMproxy::run()
       }
 
       snapshot_file.close();
+      metrics.stopClockAndAppend(MakeSnapshots);
+      metrics.measureIO(stringStream.str());
     }
 
     // Save pressure for every receiver
     const int order = m_mesh->getOrder();
 
+    metrics.startClock(MakeSismos);
     for (int rcvIdx = 0; rcvIdx < rcvs_size_; rcvIdx++)
     {
       float varnp1 = 0.0;
@@ -357,41 +368,39 @@ void SEMproxy::run()
       }
       pnAtReceiver(rcvIdx, indexTimeSample) = varnp1;
     }
+    metrics.stopClockAndAppend(MakeSismos);
 
     swap(i1, i2);
 
     auto tmp = solverData.m_i1;
     solverData.m_i1 = solverData.m_i2;
     solverData.m_i2 = tmp;
-
-    totalOutputTime += system_clock::now() - startOutputTime;
   }
 
   // handling save of watched receiver data:
   if (saveWatchedReceiversOutput)
   {
+    metrics.startClock(OutputSismos);
     if (watchedReceiversOutputFormat == BIN)
     {
-      save_watched_receivers_output_bin();
+      save_watched_receivers_output_bin(metrics);
     }
     else
     {
-      save_watched_receivers_output_plain();
+      save_watched_receivers_output_plain(metrics);
     }
+    metrics.stopClockAndAppend(OutputSismos);
   }
+  metrics.stopClockAndAppend(Global);
 
-  float kerneltime_ms = time_point_cast<microseconds>(totalComputeTime)
-                            .time_since_epoch()
-                            .count();
-  float outputtime_ms =
-      time_point_cast<microseconds>(totalOutputTime).time_since_epoch().count();
-
-  cout << "------------------------------------------------ " << endl;
-  cout << "\n---- Elapsed Kernel Time : " << kerneltime_ms / 1E6 << " seconds."
-       << endl;
-  cout << "---- Elapsed Output Time : " << outputtime_ms / 1E6 << " seconds."
-       << endl;
-  cout << "------------------------------------------------ " << endl;
+  cout << metrics;
+  if (saveReportPath)
+  {
+    std::ofstream output(saveReportPath.value(),
+                         std::ios::trunc | std::ios::out);
+    output << metrics;
+    output.close();
+  }
 }
 
 // Initialize arrays
@@ -580,7 +589,7 @@ float SEMproxy::find_cfl_dt(float cfl_factor)
   return dt;
 }
 
-void SEMproxy::save_watched_receivers_output_bin()
+void SEMproxy::save_watched_receivers_output_bin(Measure& metrics)
 {
   /*
    * <HEADER>
@@ -607,9 +616,11 @@ void SEMproxy::save_watched_receivers_output_bin()
       sizeof(float) * pnAtReceiver.size());  // pnAtReceiver.size() is the full
                                              // array size, not one single dim
   watchedReceiversOutput.close();
+  metrics.measureIO(watchedReceiversOutputPath);
+  metrics.getTotalBytes();
 }
 
-void SEMproxy::save_watched_receivers_output_plain()
+void SEMproxy::save_watched_receivers_output_plain(Measure& metrics)
 { /*
    * plaintext format will be fairly simply:
    * nb_receivers;nb_samples_per_receiver
@@ -636,9 +647,9 @@ void SEMproxy::save_watched_receivers_output_plain()
       if (j + 1 < num_sample_) watchedReceiversOutput << ";";
       // we always add `\n` even if it's the last receiver, as POSIX
       // compliance is the key for an healthy life
-      else
-        watchedReceiversOutput << std::endl;
     }
   }
   watchedReceiversOutput.close();
+  metrics.measureIO(watchedReceiversOutputPath);
+  metrics.getTotalBytes();
 }

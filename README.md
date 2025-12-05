@@ -76,4 +76,15 @@ The following options can be used to configure your build:
 | `USE_VECTOR`           | Use `std::vector` for data arrays (enabled by default unless Kokkos is used)|
 
 ---
+## Quick Start, Nix:
+Use the given flake (eg. `nix develop`). It is made for compiling with Ninja instead of Make mostly for compilation speed.
 
+Once in the shell you can than do (for development version)
+
+```sh
+mkdr -p build/debug
+cd build/debug
+cmake ../.. -DUSE_KOKKOS=ON -DUSE_VECTOR=OFF -DCOMPILE_FD=OFF -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -G Ninja
+cd ../..
+cmake --build build/debug
+```
