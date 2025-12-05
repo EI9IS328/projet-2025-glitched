@@ -1,6 +1,9 @@
 #pragma once
 
 #include <cxxopts.hpp>
+#include <filesystem>
+#include <fstream>
+#include <iostream>
 #include <stdexcept>
 #include <string>
 
@@ -12,10 +15,13 @@ class SemProxyOptions
   int ex = 50, ey = 50, ez = 50;
   float lx = 2000.f, ly = 2000.f, lz = 2000.f;
   float srcx = 1010.f, srcy = 1010.f, srcz = 1010.f;
-  float rcvx = 1410.f, rcvy = 1010.f, rcvz = 1010.f;
+  std::vector<std::tuple<float, float, float>> rcvs = {
+      {1410.f, 1010.f, 1010.f}};
   std::string implem = "makutu";  // makutu|shiva
   std::string method = "sem";     // sem|dg
   std::string mesh = "cartesian";
+  std::string snapshot_folder_path = "";
+  int snapshot_interval = 50;
   float dt = 0.001;
   float timemax = 1.5;
   bool autodt = false;
@@ -26,14 +32,77 @@ class SemProxyOptions
   // Boolean to tell if the model is charged on nodes or on element
   bool isModelOnNodes = false;
   bool isElastic = false;
+  // handling of watchedReceivers files
+  std::string watchedReceiversListPath = "";
+  std::string watchedReceiversOutputPath = "";
+  std::string watchedReceiversOutputFormat = "bin";
 
-  void validate() const
+  void validate()
   {
     if (order < 1) throw std::runtime_error("order must be >= 1");
     if (ex <= 0 || ey <= 0 || ez <= 0)
       throw std::runtime_error("ex/ey/ez must be > 0");
     if (lx <= 0 || ly <= 0 || lz <= 0)
       throw std::runtime_error("lx/ly/lz must be > 0");
+    // handling of the watchedReceivers list file if given
+    if (!watchedReceiversListPath.empty())
+    {
+      std::ifstream watchedReceiversListFile(watchedReceiversListPath);
+      if (watchedReceiversListFile.fail())
+      {
+        throw std::runtime_error("failed to load watchedReceivers list");
+      }
+      rcvs.clear();
+      std::string curLine;
+      std::string xs, ys, zs;
+      while (std::getline(watchedReceiversListFile, curLine))
+      {
+        std::string xs, ys, zs;
+        std::stringstream ss(curLine);
+
+        if (!std::getline(ss, xs, ';') || !std::getline(ss, ys, ';') ||
+            !std::getline(ss, zs, ';'))
+        {
+          throw std::runtime_error("invalid coordinate: " + curLine);
+        }
+
+        int x, y, z;
+        try
+        {
+          x = std::stoi(xs);
+          y = std::stoi(ys);
+          z = std::stoi(zs);
+
+          rcvs.push_back({x, y, z});
+        }
+        catch (const std::exception&)
+        {
+          throw std::runtime_error("invalid coordinate: " + curLine);
+        }
+      }
+      watchedReceiversListFile.close();
+    }
+    // handling of the watchedReceivers output file
+    if (!watchedReceiversOutputPath.empty())
+    {
+      // check the file can be made by actually creating it and removing it
+      // right afterwards
+      std::ofstream watchedReceiversOutputFile(watchedReceiversOutputPath,
+                                               std::ios::out | std::ios::trunc);
+      if (watchedReceiversOutputFile.fail())
+      {
+        throw std::runtime_error("Couldn't create file at path " +
+                                 watchedReceiversOutputPath);
+      }
+      watchedReceiversOutputFile.close();
+      std::filesystem::remove(watchedReceiversOutputPath);
+    }
+    if (watchedReceiversOutputFormat != "bin" &&
+        watchedReceiversOutputFormat != "plain")
+    {
+      throw std::runtime_error("Format " + watchedReceiversOutputFormat +
+                               " not recognized");
+    }
   }
 
   // Bind CLI flags to this instance (no --help here)
@@ -68,9 +137,22 @@ class SemProxyOptions
         "taper-delta", "Taper delta for sponge boundaries value",
         cxxopts::value<float>(o.taper_delta))(
         "is-model-on-nodes",
-        "Boolean to tell if the model is charged on nodes (true) or on element "
+        "Boolean to tell if the model is charged on nodes (true) or on "
+        "element "
         "(false)",
         cxxopts::value<bool>(o.isModelOnNodes))(
-        "is-elastic", "Elastic simulation", cxxopts::value<bool>(o.isElastic));
+        "is-elastic", "Elastic simulation", cxxopts::value<bool>(o.isElastic))(
+        "snapshot-folder-path", "Path to folder where to save snapshots (activates snapshot when given)",
+        cxxopts::value<std::string>(o.snapshot_folder_path))(
+        "snapshot-interval", "Interval to save snapshots at if activated",
+        cxxopts::value<int>(o.snapshot_interval))(
+        "watched-receivers",
+        "Path for a list of watchedReceivers to save values from",
+        cxxopts::value<std::string>(o.watchedReceiversListPath))(
+        "output-receivers", "Path for the output receivers data to be saved at",
+        cxxopts::value<std::string>(o.watchedReceiversOutputPath))(
+        "output-receivers-format",
+        "Format for the output receivers data to be saved at. bin|plain",
+        cxxopts::value<std::string>(o.watchedReceiversOutputFormat));
   }
 };
