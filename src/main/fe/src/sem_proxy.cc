@@ -220,6 +220,11 @@ void SEMproxy::run()
       snapshot_file.write(reinterpret_cast<char*>(solverData.m_pnGlobal.data()),
                           solverData.m_pnGlobal.size() * sizeof(float));
 #else
+      int ex = nb_elements_[0];
+      int ey = nb_elements_[1];
+      int ez = nb_elements_[2];
+      int order = m_mesh->getOrder();
+      snapshot_file << ex << ',' << ey << ',' << ez << ',' << order << '\n';
       int dim = m_mesh->getOrder() + 1;
       for (int elementNumber = 0; elementNumber < m_mesh->getNumberOfElements();
            elementNumber++)
