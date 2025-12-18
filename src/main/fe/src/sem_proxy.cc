@@ -255,7 +255,7 @@ void SEMproxy::run()
           }
           else
           {
-          snapshot_file << ex << ',' << ey << ',' << ez << ',' << order << '\n';
+          snapshot_file << ex_ << ',' << ey_ << ',' << ez_ << ',' << order_ << '\n';
           for (int elementNumber = 0;
                elementNumber < m_mesh->getNumberOfElements(); elementNumber++)
           {
