@@ -15,11 +15,13 @@
 #include <utils.h>
 
 #include <memory>
+#include <optional>
 #include <string>
 
+#include "measure.h"
 #include "sem_proxy_options.h"
 
-enum WatchedReceiversOutputFormat
+enum OutputFormat
 {
   BIN,
   PLAIN,
@@ -98,6 +100,8 @@ class SEMproxy
   bool should_snapshot_ = false;
   int snapshot_iterations_interval_;
   std::string snapshot_folder_;
+  bool snapshot_in_situ_;
+  OutputFormat snapshot_format;
 
   // physics
   bool isElastic_;
@@ -128,7 +132,9 @@ class SEMproxy
   // watched receivers output
   bool saveWatchedReceiversOutput = false;
   std::string watchedReceiversOutputPath;
-  WatchedReceiversOutputFormat watchedReceiversOutputFormat;
+  OutputFormat watchedReceiversOutputFormat;
+  // save code measure reports
+  std::optional<std::string> saveReportPath = std::nullopt;
   // initialize source and RHS
   void init_source();
 
@@ -142,8 +148,8 @@ class SEMproxy
   SolverFactory::meshType getMesh(string meshArg);
 
   // private methods to dump receivers data
-  void save_watched_receivers_output_bin();
-  void save_watched_receivers_output_plain();
+  void save_watched_receivers_output_bin(Measure& metrics);
+  void save_watched_receivers_output_plain(Measure& metrics);
 };
 
 #endif /* SEMPROXY_HPP_ */
