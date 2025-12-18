@@ -216,7 +216,7 @@ void SEMproxy::run()
       stringStream << "/snapshot";
       stringStream << indexTimeSample;
       stringStream << ".bin";
-      std::string snapshot  _file_path = stringStream.str();
+      std::string snapshot_file_path = stringStream.str();
 
       std::cout << "snapshoting at " << snapshot_file_path << std::endl;
 
