@@ -311,10 +311,14 @@ void SEMproxy::run()
         }
 
         printf("max_pressure=%f\n", max_pressure);
-        int _step = domain_size_[0] / (float)(nb_nodes_[0] - 1);
-        printf("step = %d\n", _step);
+        float _step[3] = {
+          domain_size_[0] / (float)(nb_nodes_[0] - 1),
+          domain_size_[1] / (float)(nb_nodes_[1] - 1),
+          domain_size_[2] / (float)(nb_nodes_[2] - 1),
+        };
+        printf("step_x = %f, step_y = %f, step_z = %f\n", _step[0], _step[1], _step[2]);
 
-        char img[nb_nodes_[1] * nb_nodes_[2]];
+        char *img = (char*)calloc(nb_nodes_[1] * nb_nodes_[2], 1);
 
         for (int elementNumber = 0;
              elementNumber < m_mesh->getNumberOfElements(); elementNumber++)
@@ -337,17 +341,13 @@ void SEMproxy::run()
             {  // only get data from the slice
               continue;
             }
-            int img_offset = ((int)(global_coords[1] / _step)) * nb_nodes_[2] +
-                             ((int)(global_coords[2] / _step));
+            int img_offset = ((int)(global_coords[1] / _step[1])) * nb_nodes_[2] +
+                             ((int)(global_coords[2] / _step[2]));
             if (max_pressure > 0.0 &&
                 solverData.m_pnGlobal(globalIdx, i2) > 0.0)
             {
-              // printf("nx = %f, ny = %f, nz = %f\n", global_coords[0] / _step,
-              // , );
               img[img_offset] =
                   (solverData.m_pnGlobal(globalIdx, i2) * 255.0) / max_pressure;
-              // printf("scaled_v = %d (original=%f)\n", img[img_offset],
-              // solverData.m_pnGlobal(globalIdx, i2));
             }
             else
             {
@@ -356,6 +356,7 @@ void SEMproxy::run()
           }
         }
         snapshot_file.write(img, nb_nodes_[1] * nb_nodes_[2]);
+        free(img);
       }
 
       snapshot_file.close();
