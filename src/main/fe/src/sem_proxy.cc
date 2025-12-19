@@ -547,19 +547,18 @@ void SEMproxy::save_watched_receivers_output_plain(Measure& metrics)
    */
   std::ofstream watchedReceiversOutput(watchedReceiversOutputPath,
                                        std::ios::trunc | std::ios::out);
-  watchedReceiversOutput << rcvs_size_ << ";" << num_sample_ << std::endl;
+  watchedReceiversOutput << rcvs_size_ << ";" << num_sample_;
 
   for (int i = 0; i < rcvs_size_; i++)
   {
     auto rcv_coord = rcvs_coord_[i];
-    watchedReceiversOutput << rcv_coord[0] << ";" << rcv_coord[1] << ";"
+    watchedReceiversOutput << std::endl
+                           << rcv_coord[0] << ";" << rcv_coord[1] << ";"
                            << rcv_coord[2] << std::endl;
     for (int j = 0; j < num_sample_; j++)
     {
       watchedReceiversOutput << pnAtReceiver(i, j);
       if (j + 1 < num_sample_) watchedReceiversOutput << ";";
-      // we always add `\n` even if it's the last receiver, as POSIX
-      // compliance is the key for an healthy life
     }
   }
   watchedReceiversOutput.close();
