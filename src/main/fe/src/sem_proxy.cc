@@ -15,9 +15,11 @@
 #include <source_and_receiver_utils.h>
 
 #include <algorithm>
+#include <cstring>
 #include <cxxopts.hpp>
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <ostream>
 #include <string>
 
@@ -173,6 +175,16 @@ SEMproxy::SEMproxy(const SemProxyOptions& opt)
 
   initFiniteElem();
 
+  if (opt.export_params)
+  {
+    std::ostringstream exportName;
+    std::time_t result = std::time(nullptr);
+    exportName << "params_sim_" << result;
+    std::ofstream exportOutput(exportName.str());
+    exportOutput << "src_coords:" << src_coord_[0] << ";" << src_coord_[1]
+                 << ";" << src_coord_[2] << std::endl;
+  }
+
   std::cout << "Number of node is " << m_mesh->getNumberOfNodes() << std::endl;
   std::cout << "Number of element is " << m_mesh->getNumberOfElements()
             << std::endl;
@@ -312,13 +324,14 @@ void SEMproxy::run()
 
         printf("max_pressure=%f\n", max_pressure);
         float _step[3] = {
-          domain_size_[0] / (float)(nb_nodes_[0] - 1),
-          domain_size_[1] / (float)(nb_nodes_[1] - 1),
-          domain_size_[2] / (float)(nb_nodes_[2] - 1),
+            domain_size_[0] / (float)(nb_nodes_[0] - 1),
+            domain_size_[1] / (float)(nb_nodes_[1] - 1),
+            domain_size_[2] / (float)(nb_nodes_[2] - 1),
         };
-        printf("step_x = %f, step_y = %f, step_z = %f\n", _step[0], _step[1], _step[2]);
+        printf("step_x = %f, step_y = %f, step_z = %f\n", _step[0], _step[1],
+               _step[2]);
 
-        char *img = (char*)calloc(nb_nodes_[1] * nb_nodes_[2], 1);
+        char* img = (char*)calloc(nb_nodes_[1] * nb_nodes_[2], 1);
 
         for (int elementNumber = 0;
              elementNumber < m_mesh->getNumberOfElements(); elementNumber++)
@@ -341,8 +354,9 @@ void SEMproxy::run()
             {  // only get data from the slice
               continue;
             }
-            int img_offset = ((int)(global_coords[1] / _step[1])) * nb_nodes_[2] +
-                             ((int)(global_coords[2] / _step[2]));
+            int img_offset =
+                ((int)(global_coords[1] / _step[1])) * nb_nodes_[2] +
+                ((int)(global_coords[2] / _step[2]));
             if (max_pressure > 0.0 &&
                 solverData.m_pnGlobal(globalIdx, i2) > 0.0)
             {
