@@ -62,29 +62,19 @@ def run_benchmark():
 def save_and_plot(all_results):
     plt.figure(figsize=(10, 6))
     
-    with open("benchmark_comparison.csv", "w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["Format", "Dimension", "Time_Seconds"])
+    for f_type, data in all_results.items():
 
-        for f_type, data in all_results.items():
-            if not data: continue
-            dims, times = zip(*data)
-            
-            for d, t in data:
-                writer.writerow([f_type, d, t])
-            
-            plt.plot(dims, times, marker='o', label=f"Format: {f_type}")
+        nodes, times = zip(*data)
+        plt.plot(nodes, times, marker='o', label=f"Format: {f_type}")
 
-    plt.title("Data Processing Speed: Binary vs Plain Text")
-    plt.xlabel("Grid Dimension (N)")
-    plt.ylabel("Time (seconds)")
+    plt.title("Performance vs Total Number of Nodes")
+    plt.xlabel("Total Nodes ($N_{total}$)")
+    plt.ylabel("Execution Time (s)")
+    plt.xscale('log') 
+    plt.yscale('log') 
     plt.legend()
-    plt.grid(True, linestyle='--', alpha=0.6)
-    
-    
-    
-    plt.savefig("benchmark_comparison.png")
-    print(f"\nBenchmark finished. Results saved in 'benchmark_comparison.png'")
+    plt.grid(True, which="both", ls="-", alpha=0.5)
+    plt.savefig("benchmark_nodes.png")
 
 if __name__ == "__main__":
     results = run_benchmark()
