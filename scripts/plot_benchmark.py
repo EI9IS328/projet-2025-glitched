@@ -9,11 +9,11 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 # Scientific color palette for HPC/simulation context
-MODE_COLORS = {
-    'base': '#2c3e50',    # Dark slate - baseline
-    'adhoc': '#e74c3c',   # Red - raw data export
-    'insitu': '#3498db',  # Blue - in-situ processing
-    'rgb': '#27ae60',     # Green - colormap export
+MODE_STYLES = {
+    'base': {'color': '#2c3e50', 'marker': 'o', 'linestyle': '-'},
+    'adhoc': {'color': '#e74c3c', 'marker': 's', 'linestyle': '-'},
+    'insitu': {'color': '#3498db', 'marker': '^', 'linestyle': '--'},
+    'rgb': {'color': '#27ae60', 'marker': 'D', 'linestyle': ':'},
 }
 
 MODE_LABELS = {
@@ -24,8 +24,8 @@ MODE_LABELS = {
 }
 
 
-def get_color(mode):
-    return MODE_COLORS.get(mode, '#7f8c8d')
+def get_style(mode):
+    return MODE_STYLES.get(mode, {'color': '#7f8c8d', 'marker': 'o', 'linestyle': '-'})
 
 
 def get_label(mode):
@@ -60,8 +60,10 @@ def main():
     ax = axes[0, 0]
     for mode in modes:
         data = grouped[grouped['mode'] == mode]
-        ax.plot(data['grid_total'], data['time_snapshots'], 'o-',
-                color=get_color(mode), label=get_label(mode), linewidth=2, markersize=6)
+        style = get_style(mode)
+        ax.plot(data['grid_total'], data['time_snapshots'],
+                marker=style['marker'], linestyle=style['linestyle'],
+                color=style['color'], label=get_label(mode), linewidth=2, markersize=8)
     ax.set_xlabel('Grid Total (elements)')
     ax.set_ylabel('Time (seconds)')
     ax.set_title('Snapshot Time vs Grid Size')
@@ -72,8 +74,10 @@ def main():
     ax = axes[0, 1]
     for mode in modes:
         data = grouped[grouped['mode'] == mode]
-        ax.plot(data['grid_total'], data['total_bytes'] / 1e6, 'o-',
-                color=get_color(mode), label=get_label(mode), linewidth=2, markersize=6)
+        style = get_style(mode)
+        ax.plot(data['grid_total'], data['total_bytes'] / 1e6,
+                marker=style['marker'], linestyle=style['linestyle'],
+                color=style['color'], label=get_label(mode), linewidth=2, markersize=8)
     ax.set_xlabel('Grid Total (elements)')
     ax.set_ylabel('Data Written (MB)')
     ax.set_yscale('log')
@@ -101,8 +105,10 @@ def main():
     ax = axes[1, 1]
     for mode in modes:
         data = grouped[grouped['mode'] == mode]
-        ax.plot(data['grid_total'], data['time_kernel_total'], 'o-',
-                color=get_color(mode), label=get_label(mode), linewidth=2, markersize=6)
+        style = get_style(mode)
+        ax.plot(data['grid_total'], data['time_kernel_total'],
+                marker=style['marker'], linestyle=style['linestyle'],
+                color=style['color'], label=get_label(mode), linewidth=2, markersize=8)
     ax.set_xlabel('Grid Total (elements)')
     ax.set_ylabel('Time (seconds)')
     ax.set_title('Kernel Time vs Grid Size')
