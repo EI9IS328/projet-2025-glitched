@@ -27,6 +27,7 @@ def run_benchmark():
     for f_type in FORMATS:
         for dim in DIMENSIONS:
             durations = []
+            node_counts = []
             
 
             gen_cmd = [
@@ -43,19 +44,19 @@ def run_benchmark():
                 process = subprocess.run(viz_cmd, capture_output=True, text=True)
                 
                 try:
-                    exec_time = float(process.stdout.strip().split('\n')[-1])
-                    durations.append(exec_time)
+                    output = process.stdout.strip().split('\n')[-1]
+                    nodes, exec_time = output.split(',')
+                    node_counts.append(int(nodes))
+                    durations.append(float(exec_time))
                 except:
                     continue
 
             if durations:
                 avg_time = sum(durations) / len(durations)
-                all_results[f_type].append((dim, avg_time))
-                print(f"{f_type:>7} | {dim:5d} | {avg_time:15.6f}s | Success")
-
-            for f in os.listdir(SNAPSHOT_DIR):
-                os.remove(os.path.join(SNAPSHOT_DIR, f))
-
+                actual_nodes = node_counts[0] 
+                all_results[f_type].append((actual_nodes, avg_time))
+                print(f"{f_type:>7} | {actual_nodes:8d} nodes | {avg_time:15.6f}s | Success")
+    
     return all_results
 
 def save_and_plot(all_results):

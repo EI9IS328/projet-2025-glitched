@@ -54,10 +54,14 @@ if __name__ == "__main__":
     vmin, vmax = get_global_limits(f_type)
     
     meta = nodeCalc.getMetaDim(it, f_type)
+    nx = meta['ex'] * meta['order'] + 1
+    ny = meta['ey'] * meta['order'] + 1
+    nz = meta['ez'] * meta['order'] + 1
+    total_nodes = nx * ny * nz
     data = binDecode.openBin(it) if f_type == "bin" else nodeCalc.getSnapshotData(it)
     
     if data and meta:
         matrix = get_slice_data(data, z_slice, meta)
     t2 = time.perf_counter()
-    print(t2-t1)
+    print(f"{total_nodes},{t2-t1}")
     
