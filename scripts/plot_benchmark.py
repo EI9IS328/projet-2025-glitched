@@ -11,14 +11,16 @@ import pandas as pd
 # Scientific color palette for HPC/simulation context
 MODE_STYLES = {
     'base': {'color': '#2c3e50', 'marker': 'o', 'linestyle': '-'},
-    'adhoc': {'color': '#e74c3c', 'marker': 's', 'linestyle': '-'},
+    'adhoc-plain': {'color': '#e74c3c', 'marker': 's', 'linestyle': '-'},
+    'adhoc-bin': {'color': '#c0392b', 'marker': 'p', 'linestyle': '-.'},
     'insitu': {'color': '#3498db', 'marker': '^', 'linestyle': '--'},
     'rgb': {'color': '#27ae60', 'marker': 'D', 'linestyle': ':'},
 }
 
 MODE_LABELS = {
     'base': 'Base (no export)',
-    'adhoc': 'Ad-hoc (raw data)',
+    'adhoc-plain': 'Ad-hoc (plain text)',
+    'adhoc-bin': 'Ad-hoc (binary)',
     'insitu': 'In-situ (grayscale)',
     'rgb': 'In-situ (RGB colormap)',
 }
@@ -91,7 +93,7 @@ def main():
     breakdown = grouped[grouped['grid_total'] == largest_grid][['mode', 'time_simulating', 'time_snapshots', 'time_sismos']]
     breakdown = breakdown.set_index('mode')
     # Reorder index to match our preferred order
-    order = [m for m in ['base', 'adhoc', 'insitu', 'rgb'] if m in breakdown.index]
+    order = [m for m in ['base', 'adhoc-plain', 'adhoc-bin', 'insitu', 'rgb'] if m in breakdown.index]
     breakdown = breakdown.reindex(order)
     breakdown.index = [get_label(m) for m in breakdown.index]
     breakdown.plot(kind='bar', stacked=True, ax=ax, color=['#3498db', '#e74c3c', '#f39c12'])
@@ -101,7 +103,7 @@ def main():
     ax.legend(['Simulating', 'Snapshots', 'Sismos'])
     ax.tick_params(axis='x', rotation=15)
 
-    # Plot 4: Kernel time vs grid size
+    # Plot 4: Total time vs grid size
     ax = axes[1, 1]
     for mode in modes:
         data = grouped[grouped['mode'] == mode]
@@ -111,7 +113,7 @@ def main():
                 color=style['color'], label=get_label(mode), linewidth=2, markersize=8)
     ax.set_xlabel('Grid Total (elements)')
     ax.set_ylabel('Time (seconds)')
-    ax.set_title('Kernel Time vs Grid Size')
+    ax.set_title('Total Time vs Grid Size')
     ax.legend()
     ax.grid(True, alpha=0.3)
 

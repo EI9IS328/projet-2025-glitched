@@ -98,9 +98,12 @@ def run_benchmark(
 
     if mode == 'base':
         pass  # No snapshot arguments
-    elif mode == 'adhoc':
+    elif mode == 'adhoc-plain':
         os.makedirs(snapshot_dir, exist_ok=True)
-        cmd.extend(["--snapshot-folder-path", snapshot_dir])
+        cmd.extend(["--snapshot-folder-path", snapshot_dir, "--snapshot-format", "plain"])
+    elif mode == 'adhoc-bin':
+        os.makedirs(snapshot_dir, exist_ok=True)
+        cmd.extend(["--snapshot-folder-path", snapshot_dir, "--snapshot-format", "bin"])
     elif mode == 'insitu':
         os.makedirs(snapshot_dir, exist_ok=True)
         cmd.extend(["--snapshot-folder-path", snapshot_dir, "--snapshot-in-situ"])
@@ -253,9 +256,9 @@ def main():
     parser.add_argument(
         "--modes", "-m",
         nargs="+",
-        choices=["base", "adhoc", "insitu", "rgb"],
-        default=["base", "adhoc", "insitu", "rgb"],
-        help="Export modes to benchmark: base (no snapshots), adhoc (raw data), insitu (image), rgb (colormap) (default: base adhoc insitu rgb)"
+        choices=["base", "adhoc-plain", "adhoc-bin", "insitu", "rgb"],
+        default=["base", "adhoc-plain", "adhoc-bin", "insitu", "rgb"],
+        help="Export modes to benchmark: base (no snapshots), adhoc-plain (plain text), adhoc-bin (binary), insitu (image), rgb (colormap) (default: base adhoc-plain adhoc-bin insitu rgb)"
     )
     parser.add_argument(
         "--sizes", "-s",
