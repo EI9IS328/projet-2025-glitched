@@ -55,6 +55,7 @@ SEMproxy::SEMproxy(const SemProxyOptions& opt)
   snapshot_iterations_interval_ = opt.snapshot_interval;
   snapshot_in_situ_ = opt.snapshot_in_situ;
   snapshot_colormap_ = colormapFromString(opt.snapshot_colormap);
+  snapshot_slice_axis_ = getSliceAxis(opt.snapshot_slice_axis);
   if (opt.snapshot_folder_path.length() > 0)
   {
     should_snapshot_ = true;
@@ -278,21 +279,26 @@ void SEMproxy::run()
       }
       else  // IN SITU
       {
-        // lock x for a slice view
-        int sliced_dim = 0;  // x
+        // slice along the configured axis (0=X, 1=Y, 2=Z)
+        int sliced_dim = snapshot_slice_axis_;
         int slice_pos_along_sliced_dim = domain_size_[sliced_dim] / 2;
+
+        // determine the two axes for the image (the ones we're NOT slicing)
+        // img_axis1 and img_axis2 are the remaining dimensions
+        int img_axis1 = (sliced_dim + 1) % 3;
+        int img_axis2 = (sliced_dim + 2) % 3;
 
         // Write PGM (grayscale) or PPM (color) header
         if (snapshot_colormap_ == COLORMAP_GRAYSCALE)
         {
           snapshot_file.write("P5\n", 3);
-          snapshot_file << nb_nodes_[1] << " " << nb_nodes_[2] << std::endl;
+          snapshot_file << nb_nodes_[img_axis1] << " " << nb_nodes_[img_axis2] << std::endl;
           snapshot_file.write("255\n", 4);
         }
         else
         {
           snapshot_file.write("P6\n", 3);
-          snapshot_file << nb_nodes_[1] << " " << nb_nodes_[2] << std::endl;
+          snapshot_file << nb_nodes_[img_axis1] << " " << nb_nodes_[img_axis2] << std::endl;
           snapshot_file.write("255\n", 4);
         }
 
@@ -341,7 +347,7 @@ void SEMproxy::run()
 
         // Allocate image buffer (1 byte for grayscale, 3 bytes for color)
         int bytes_per_pixel = (snapshot_colormap_ == COLORMAP_GRAYSCALE) ? 1 : 3;
-        char *img = (char*)calloc(nb_nodes_[1] * nb_nodes_[2] * bytes_per_pixel, 1);
+        char* img = (char*)calloc(nb_nodes_[img_axis1] * nb_nodes_[img_axis2] * bytes_per_pixel, 1);
 
         for (int elementNumber = 0;
              elementNumber < m_mesh->getNumberOfElements(); elementNumber++)
@@ -364,9 +370,11 @@ void SEMproxy::run()
             {  // only get data from the slice
               continue;
             }
-            int pixel_index = ((int)(global_coords[1] / _step[1])) * nb_nodes_[2] +
-                             ((int)(global_coords[2] / _step[2]));
-            
+            int pixel_index =
+                ((int)(global_coords[img_axis1] / _step[img_axis1])) *
+                    nb_nodes_[img_axis2] +
+                ((int)(global_coords[img_axis2] / _step[img_axis2]));
+
             uint8_t grayscale_value;
             if (max_pressure > 0.0 &&
                 solverData.m_pnGlobal(globalIdx, i2) > 0.0)
@@ -378,7 +386,7 @@ void SEMproxy::run()
             {
               grayscale_value = 0;
             }
-            
+
             if (snapshot_colormap_ == COLORMAP_GRAYSCALE)
             {
               img[pixel_index] = grayscale_value;
@@ -394,7 +402,7 @@ void SEMproxy::run()
             }
           }
         }
-        snapshot_file.write(img, nb_nodes_[1] * nb_nodes_[2] * bytes_per_pixel);
+        snapshot_file.write(img, nb_nodes_[img_axis1] * nb_nodes_[img_axis2] * bytes_per_pixel);
         free(img);
       }
 
@@ -609,6 +617,16 @@ void SEMproxy::init_source()
         throw std::runtime_error("Unsupported order: " + std::to_string(order));
     }
   }
+}
+
+int SEMproxy::getSliceAxis(string axisArg)
+{
+  if (axisArg == "X" || axisArg == "x") return 0;
+  if (axisArg == "Y" || axisArg == "y") return 1;
+  if (axisArg == "Z" || axisArg == "z") return 2;
+
+  throw std::invalid_argument(
+      "Slice axis must be X, Y, or Z. Got: " + axisArg);
 }
 
 SolverFactory::implemType SEMproxy::getImplem(string implemArg)
