@@ -86,7 +86,6 @@ def run_benchmark(
         BenchmarkResult if successful, None otherwise
     """
     snapshot_dir = os.path.join(output_dir, f"snapshots_{mode}_{ex}x{ey}x{ez}")
-    os.makedirs(snapshot_dir, exist_ok=True)
 
     # Build command based on mode
     cmd = [
@@ -95,13 +94,19 @@ def run_benchmark(
         "--ey", str(ey),
         "--ez", str(ez),
         "--timemax", str(timemax),
-        "--snapshot-folder-path", snapshot_dir,
     ]
 
-    if mode == 'insitu':
-        cmd.append("--snapshot-in-situ")
+    if mode == 'base':
+        pass  # No snapshot arguments
+    elif mode == 'adhoc':
+        os.makedirs(snapshot_dir, exist_ok=True)
+        cmd.extend(["--snapshot-folder-path", snapshot_dir])
+    elif mode == 'insitu':
+        os.makedirs(snapshot_dir, exist_ok=True)
+        cmd.extend(["--snapshot-folder-path", snapshot_dir, "--snapshot-in-situ"])
     elif mode == 'rgb':
-        cmd.extend(["--snapshot-in-situ", "--snapshot-colormap", "viridis"])
+        os.makedirs(snapshot_dir, exist_ok=True)
+        cmd.extend(["--snapshot-folder-path", snapshot_dir, "--snapshot-in-situ", "--snapshot-colormap", "viridis"])
 
     print(f"  Running: {' '.join(cmd)}")
 
@@ -248,9 +253,9 @@ def main():
     parser.add_argument(
         "--modes", "-m",
         nargs="+",
-        choices=["adhoc", "insitu", "rgb"],
-        default=["adhoc", "insitu", "rgb"],
-        help="Export modes to benchmark: adhoc (raw data), insitu (image), rgb (colormap) (default: adhoc insitu rgb)"
+        choices=["base", "adhoc", "insitu", "rgb"],
+        default=["base", "adhoc", "insitu", "rgb"],
+        help="Export modes to benchmark: base (no snapshots), adhoc (raw data), insitu (image), rgb (colormap) (default: base adhoc insitu rgb)"
     )
     parser.add_argument(
         "--sizes", "-s",
