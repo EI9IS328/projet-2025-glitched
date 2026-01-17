@@ -105,7 +105,7 @@ def run_benchmark(
     ]
 
     if compression == 'rle':
-        cmd.append("--snapshot-rle")
+        cmd.extend(["--compression", "rle"])
     elif compression == 'quant1':
         cmd.extend(["--compression", "quant", "--quant-level", "1"])
     elif compression == 'quant2':
