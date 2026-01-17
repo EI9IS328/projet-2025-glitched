@@ -5,10 +5,11 @@ import os
 import nodeCalc
 import binDecode
 import numpy as np
+import time
 
 def get_global_limits(file_type):
-    folder = "../../snapshot"
-    path = os.path.normpath(os.path.join(os.path.dirname(__file__), folder))
+    cwd = os.getcwd() 
+    path = os.path.join(cwd, "snapshot")
     ext = f".{file_type}"
     files = [f for f in os.listdir(path) if f.startswith("snapshot") and f.endswith(ext)]
     
@@ -49,6 +50,7 @@ if __name__ == "__main__":
 
     it, z_slice, f_type = int(sys.argv[1]), int(sys.argv[2]), sys.argv[3].lower()
 
+    t1 = time.perf_counter()
     vmin, vmax = get_global_limits(f_type)
     
     meta = nodeCalc.getMetaDim(it, f_type)
@@ -56,11 +58,6 @@ if __name__ == "__main__":
     
     if data and meta:
         matrix = get_slice_data(data, z_slice, meta)
-        
-        plt.figure(figsize=(10, 8))
-        norm = colors.SymLogNorm(linthresh=1e-10, linscale=1, vmin=vmin, vmax=vmax)
-        im = plt.imshow(matrix.T, origin='lower', cmap='viridis', aspect='auto', norm=norm)
-        plt.colorbar(im, label='Pressure (Pa)')
-        plt.title(f"Iteration {it} | Z-Slice {z_slice} | Fixed Scale")
-        plt.xlabel("X Index")
-        plt.ylabel("Y Index")
+    t2 = time.perf_counter()
+    print(t2-t1)
+    

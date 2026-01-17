@@ -5,7 +5,7 @@ import os
 import matplotlib.pyplot as plt
 
 # --- CONFIGURATION ---
-PROXY_EXE = "../build/bin/semproxy"
+PROXY_EXE = "./bin/semproxy"
 VISUALIZER_SCRIPT = "../src/visualizer/visualizerBench.py"
 SNAPSHOT_DIR = "snapshot"
 ITERATION = 0
