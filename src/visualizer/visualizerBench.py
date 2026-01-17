@@ -45,23 +45,27 @@ def get_slice_data(data, z_target, meta):
 
 if __name__ == "__main__":
     if len(sys.argv) < 4:
-        print("Usage: python3 visualizer.py <iteration> <z_slice> <bin|txt>")
         sys.exit(1)
 
     it, z_slice, f_type = int(sys.argv[1]), int(sys.argv[2]), sys.argv[3].lower()
 
     t1 = time.perf_counter()
-    vmin, vmax = get_global_limits(f_type)
-    
-    meta = nodeCalc.getMetaDim(it, f_type)
-    nx = meta['ex'] * meta['order'] + 1
-    ny = meta['ey'] * meta['order'] + 1
-    nz = meta['ez'] * meta['order'] + 1
-    total_nodes = nx * ny * nz
+    snapshot_path = os.path.join(os.getcwd(), "snapshot")
+    meta = nodeCalc.getMetaDim(it, f_type) 
     data = binDecode.openBin(it) if f_type == "bin" else nodeCalc.getSnapshotData(it)
     
+    total_nodes = 0
     if data and meta:
+        nx = meta['ex'] * meta['order'] + 1
+        ny = meta['ey'] * meta['order'] + 1
+        nz = meta['ez'] * meta['order'] + 1
+        total_nodes = nx * ny * nz
         matrix = get_slice_data(data, z_slice, meta)
+    
     t2 = time.perf_counter()
-    print(f"{total_nodes},{t2-t1}")
+
+    if total_nodes > 0:
+        print(f"{total_nodes},{t2-t1}")
+    else:
+        print(f"0,0")
     
