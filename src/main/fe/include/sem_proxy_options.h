@@ -22,6 +22,7 @@ class SemProxyOptions
   std::string mesh = "cartesian";
   std::string snapshot_folder_path = "";
   std::string snapshot_format = "plain";
+  std::string snapshot_colormap = "grayscale";  // grayscale|viridis|jet
   int snapshot_interval = 50;
   bool snapshot_in_situ = false;
   float dt = 0.001;
@@ -40,6 +41,9 @@ class SemProxyOptions
   std::string watchedReceiversOutputFormat = "bin";
   // save code measures reports
   std::string saveReport = "";
+  // export parameters
+  bool export_params = false;
+  std::string export_path = "./exported-params.txt";
 
   void _testFile(std::string filePath)
   {
@@ -163,6 +167,8 @@ class SemProxyOptions
         cxxopts::value<bool>(o.snapshot_in_situ))(
         "snapshot-format", "snapshot format, bin|plain",
         cxxopts::value<std::string>(o.snapshot_format))(
+        "snapshot-colormap", "snapshot colormap for in-situ, grayscale|viridis|jet",
+        cxxopts::value<std::string>(o.snapshot_colormap))(
         "watched-receivers",
         "Path for a list of watchedReceivers to save values from",
         cxxopts::value<std::string>(o.watchedReceiversListPath))(
@@ -172,6 +178,10 @@ class SemProxyOptions
         "Format for the output receivers data to be saved at. bin|plain",
         cxxopts::value<std::string>(o.watchedReceiversOutputFormat))(
         "output-measures", "Path of file for saving code measures",
-        cxxopts::value<std::string>(o.saveReport));
+        cxxopts::value<std::string>(o.saveReport))(
+        "export-params", "Export simulation parameters",
+        cxxopts::value<bool>(o.export_params))(
+        "export-path", "Path to export parameters",
+        cxxopts::value<std::string>(o.export_path));
   }
 };

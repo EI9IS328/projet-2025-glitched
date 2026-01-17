@@ -9,12 +9,14 @@
 
 #include <cartesian_struct_builder.h>
 #include <cartesian_unstruct_builder.h>
+#include <math.h>
 #include <measure.h>
 #include <sem_solver_acoustic.h>
 #include <source_and_receiver_utils.h>
 
 #include <algorithm>
 #include <cxxopts.hpp>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <ostream>
@@ -52,9 +54,12 @@ SEMproxy::SEMproxy(const SemProxyOptions& opt)
   snapshot_folder_ = opt.snapshot_folder_path;
   snapshot_iterations_interval_ = opt.snapshot_interval;
   snapshot_in_situ_ = opt.snapshot_in_situ;
+  snapshot_colormap_ = colormapFromString(opt.snapshot_colormap);
   if (opt.snapshot_folder_path.length() > 0)
   {
     should_snapshot_ = true;
+    // Create snapshot directory if it doesn't exist
+    std::filesystem::create_directories(snapshot_folder_);
   }
 
   const SolverFactory::methodType methodType = getMethod(opt.method);
@@ -216,7 +221,21 @@ void SEMproxy::run()
       stringStream << snapshot_folder_;
       stringStream << "/snapshot";
       stringStream << indexTimeSample;
-      stringStream << extension;
+      if (snapshot_in_situ_)
+      {
+        if (snapshot_colormap_ == COLORMAP_GRAYSCALE)
+        {
+          stringStream << ".pgm";
+        }
+        else
+        {
+          stringStream << ".ppm";
+        }
+      }
+      else
+      {
+        stringStream << extension;
+      }
       std::string snapshot_file_path = stringStream.str();
 
       std::cout << "snapshoting at " << snapshot_file_path << std::endl;
@@ -279,44 +298,72 @@ void SEMproxy::run()
           }
         }
       }
-      else
+      else  // IN SITU
       {
         // lock x for a slice view
         int sliced_dim = 0;  // x
         int slice_pos_along_sliced_dim = domain_size_[sliced_dim] / 2;
 
-        // header is:
-        // sliced_dim
-        // domain_size_x,domain_size_y,domain_size_z
-        // nb_nodes_x,nb_nodes_y,nb_nodes_z
-        // snapshot_file << sliced_dim << std::endl;
-        // snapshot_file << domain_size_[0] << "," << domain_size_[1] << "," <<
-        // domain_size_[2] << std::endl; snapshot_file << nb_nodes_[0] << "," <<
-        // nb_nodes_[1] << "," << nb_nodes_[2] << std::endl;
-
-        int signature = 0xCAFEBABE;
-        snapshot_file.write(reinterpret_cast<char*>(&signature),
-                            sizeof(signature));
-        struct header_t
+        // Write PGM (grayscale) or PPM (color) header
+        if (snapshot_colormap_ == COLORMAP_GRAYSCALE)
         {
-          int sliced_dim;
-          float domain_size_x;
-          float domain_size_y;
-          float domain_size_z;
-          int nb_nodes_x;
-          int nb_nodes_y;
-          int nb_nodes_z;
+          snapshot_file.write("P5\n", 3);
+          snapshot_file << nb_nodes_[1] << " " << nb_nodes_[2] << std::endl;
+          snapshot_file.write("255\n", 4);
+        }
+        else
+        {
+          snapshot_file.write("P6\n", 3);
+          snapshot_file << nb_nodes_[1] << " " << nb_nodes_[2] << std::endl;
+          snapshot_file.write("255\n", 4);
+        }
+
+        float max_pressure;
+        bool first_max_pressure = false;
+        for (int elementNumber = 0;
+             elementNumber < m_mesh->getNumberOfElements(); elementNumber++)
+        {
+          for (int i = 0; i < m_mesh->getNumberOfPointsPerElement(); ++i)
+          {
+            int x = i % dim;
+            int z = (i / dim) % dim;
+            int y = i / (dim * dim);
+
+            const int globalIdx =
+                m_mesh->globalNodeIndex(elementNumber, x, y, z);
+
+            float global_coords[3];
+            global_coords[0] = m_mesh->nodeCoord(globalIdx, 0);
+            global_coords[1] = m_mesh->nodeCoord(globalIdx, 1);
+            global_coords[2] = m_mesh->nodeCoord(globalIdx, 2);
+
+            if (global_coords[sliced_dim] != slice_pos_along_sliced_dim)
+            {  // only get data from the slice
+              continue;
+            }
+            if (!first_max_pressure)
+            {
+              max_pressure = solverData.m_pnGlobal(globalIdx, i2);
+              first_max_pressure = true;
+            }
+            if (solverData.m_pnGlobal(globalIdx, i2) > max_pressure)
+            {
+              max_pressure = solverData.m_pnGlobal(globalIdx, i2);
+            }
+          }
+        }
+
+        printf("max_pressure=%f\n", max_pressure);
+        float _step[3] = {
+          domain_size_[0] / (float)(nb_nodes_[0] - 1),
+          domain_size_[1] / (float)(nb_nodes_[1] - 1),
+          domain_size_[2] / (float)(nb_nodes_[2] - 1),
         };
-        struct header_t hdr = {
-            .sliced_dim = sliced_dim,
-            .domain_size_x = domain_size_[0],
-            .domain_size_y = domain_size_[1],
-            .domain_size_z = domain_size_[2],
-            .nb_nodes_x = nb_nodes_[0],
-            .nb_nodes_y = nb_nodes_[1],
-            .nb_nodes_z = nb_nodes_[2],
-        };
-        snapshot_file.write(reinterpret_cast<char*>(&hdr), sizeof(hdr));
+        printf("step_x = %f, step_y = %f, step_z = %f\n", _step[0], _step[1], _step[2]);
+
+        // Allocate image buffer (1 byte for grayscale, 3 bytes for color)
+        int bytes_per_pixel = (snapshot_colormap_ == COLORMAP_GRAYSCALE) ? 1 : 3;
+        char *img = (char*)calloc(nb_nodes_[1] * nb_nodes_[2] * bytes_per_pixel, 1);
 
         for (int elementNumber = 0;
              elementNumber < m_mesh->getNumberOfElements(); elementNumber++)
@@ -339,26 +386,38 @@ void SEMproxy::run()
             {  // only get data from the slice
               continue;
             }
-            struct row_t
+            int pixel_index = ((int)(global_coords[1] / _step[1])) * nb_nodes_[2] +
+                             ((int)(global_coords[2] / _step[2]));
+            
+            uint8_t grayscale_value;
+            if (max_pressure > 0.0 &&
+                solverData.m_pnGlobal(globalIdx, i2) > 0.0)
             {
-              float x;
-              float y;
-              float z;
-              float value;
-            };
-            struct row_t r = {
-                .x = global_coords[0],
-                .y = global_coords[1],
-                .z = global_coords[2],
-                .value = solverData.m_pnGlobal(globalIdx, i2),
-            };
-            snapshot_file.write(reinterpret_cast<char*>(&r), sizeof(r));
-
-            // snapshot_file << global_coords[0] << "," << global_coords[1] <<
-            // "," << global_coords[2] << "," <<
-            // solverData.m_pnGlobal(globalIdx, i2) << std::endl;
+              grayscale_value =
+                  (solverData.m_pnGlobal(globalIdx, i2) * 255.0) / max_pressure;
+            }
+            else
+            {
+              grayscale_value = 0;
+            }
+            
+            if (snapshot_colormap_ == COLORMAP_GRAYSCALE)
+            {
+              img[pixel_index] = grayscale_value;
+            }
+            else
+            {
+              // Apply colormap and write RGB values
+              RGB rgb = applyColormap(grayscale_value, snapshot_colormap_);
+              int img_offset = pixel_index * 3;
+              img[img_offset] = rgb.r;
+              img[img_offset + 1] = rgb.g;
+              img[img_offset + 2] = rgb.b;
+            }
           }
         }
+        snapshot_file.write(img, nb_nodes_[1] * nb_nodes_[2] * bytes_per_pixel);
+        free(img);
       }
 
       snapshot_file.close();
