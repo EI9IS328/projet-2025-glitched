@@ -217,6 +217,7 @@ void SEMproxy::run()
     {
       metrics.startClock(MakeSnapshots);
       // create path string
+      std::string extension = (snapshot_format == BIN) ? ".bin" : ".txt";
       std::ostringstream stringStream;
       stringStream << snapshot_folder_;
       stringStream << "/snapshot";
@@ -244,17 +245,38 @@ void SEMproxy::run()
       ofstream snapshot_file;
       snapshot_file.open(snapshot_file_path);
       int dim = m_mesh->getOrder() + 1;
-
+      int ex_ = nb_elements_[0];
+      int ey_ = nb_elements_[1];
+      int ez_ = nb_elements_[2];
+      int order_ = m_mesh->getOrder();
+      
       if (!snapshot_in_situ_)
       {
         if (snapshot_format == BIN)
         {
+          struct snapshot_header_t
+          {
+            int ex;
+            int ey;
+            int ez;
+            int order;
+          };
+
+          struct snapshot_header_t hdr = {
+            .ex = ex_,
+            .ey = ey_,
+            .ez = ez_,
+            .order = order_,
+          };
+          snapshot_file.write(reinterpret_cast<char*>(&hdr), sizeof(hdr));
+
           snapshot_file.write(
-              reinterpret_cast<char*>(solverData.m_pnGlobal.data()),
-              solverData.m_pnGlobal.size() * sizeof(float));
-        }
-        else
-        {
+            reinterpret_cast<char*>(solverData.m_pnGlobal.data()),
+            solverData.m_pnGlobal.size() * sizeof(float));
+          }
+          else
+          {
+          snapshot_file << ex_ << ',' << ey_ << ',' << ez_ << ',' << order_ << '\n';
           for (int elementNumber = 0;
                elementNumber < m_mesh->getNumberOfElements(); elementNumber++)
           {
