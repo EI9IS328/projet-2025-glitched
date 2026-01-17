@@ -207,6 +207,8 @@ SEMproxy::SEMproxy(const SemProxyOptions& opt)
   }
 
   snapshot_format = opt.snapshot_format == "bin" ? BIN : PLAIN;
+
+  bool set_quantize_level = false;
   if (opt.compression_method_ == "none")
   {
     compression_method_ = None;
@@ -218,6 +220,21 @@ SEMproxy::SEMproxy(const SemProxyOptions& opt)
   else if (opt.compression_method_ == "quant")
   {
     compression_method_ = Quant;
+    set_quantize_level = true;
+  }
+  else if (opt.compression_method_ == "quant_rle")
+  {
+    compression_method_ = QuantRLE;
+    set_quantize_level = true;
+  }
+  else
+  {
+    throw std::runtime_error("Unsupported compression method " +
+                             opt.compression_method_);
+  }
+
+  if (set_quantize_level)
+  {
     switch (opt.quant_level_)
     {
       case 1:
@@ -230,11 +247,6 @@ SEMproxy::SEMproxy(const SemProxyOptions& opt)
         throw std::runtime_error("unsupported quantization level: " +
                                  std::to_string(opt.quant_level_));
     }
-  }
-  else
-  {
-    throw std::runtime_error("Unsupported compression method" +
-                             opt.compression_method_);
   }
 
   if (!opt.saveReport.empty())
@@ -400,7 +412,8 @@ void SEMproxy::run()
             snapshot_file.write(reinterpret_cast<char*>(&scale), sizeof(float));
 
             // we quantize and save the content
-            if (quant_level_ == OneByte)  // ik its ugly but I don't know c++ very well
+            if (quant_level_ ==
+                OneByte)  // ik its ugly but I don't know c++ very well
             {
               std::vector<int8_t> buffer(nb_elems);
 
@@ -433,6 +446,101 @@ void SEMproxy::run()
               }
               snapshot_file.write(reinterpret_cast<char*>(buffer.data()),
                                   buffer.size() * sizeof(int16_t));
+            }
+          }
+          else if (compression_method_ == QuantRLE)  // asked Gemini to fuse Quant and RLE, would be better to extract everything into proper functions and do it by hand but time is running out
+          {
+            const float* original_data = solverData.m_pnGlobal.data();
+            size_t nb_elems = solverData.m_pnGlobal.size();
+
+            // --- STEP 1: CALCULATE SCALE (Same as your Quant code) ---
+            float abs_max = 0.0f;
+            for (size_t i = 0; i < nb_elems; i++)
+            {
+              float val = std::abs(original_data[i]);
+              if (std::isfinite(val) && abs_max < val) abs_max = val;
+            }
+            if (abs_max == 0.0f) abs_max = 1.0f;
+
+            // Determine max value based on bit depth
+            float quant_type_max =
+                (quant_level_ == OneByte) ? 127.0f : 32767.0f;
+            float scale = quant_type_max / abs_max;
+
+            // Write Header
+            snapshot_file.write(reinterpret_cast<char*>(&quant_level_),
+                                sizeof(uint8_t));
+            snapshot_file.write(reinterpret_cast<char*>(&scale), sizeof(float));
+
+            // --- STEP 2: HELPER LAMBDA ---
+            // A small helper to quantize a specific index.
+            // This keeps the loop logic below clean.
+            auto get_quantized_val = [&](size_t idx) -> int32_t {
+              float cur_v = original_data[idx];
+              if (!std::isfinite(cur_v)) cur_v = 0.0f;
+              // The quantization math:
+              return static_cast<int32_t>(std::max(
+                  -quant_type_max,
+                  std::min(quant_type_max, std::round(cur_v * scale))));
+            };
+
+            // --- STEP 3: RLE LOOP ON QUANTIZED DATA ---
+            if (nb_elems > 0)
+            {
+              // Initialize with the first element
+              int32_t current_run_val = get_quantized_val(0);
+              uint32_t current_count = 1;
+
+              for (size_t i = 1; i < nb_elems; i++)
+              {
+                int32_t next_val = get_quantized_val(i);
+
+                // If it matches and we haven't overflowed the counter
+                if (next_val == current_run_val && current_count < UINT32_MAX)
+                {
+                  current_count++;
+                }
+                else
+                {
+                  // Value changed: Write the previous run
+                  snapshot_file.write(reinterpret_cast<char*>(&current_count),
+                                      sizeof(uint32_t));
+
+                  // Write the value (cast back to int8 or int16)
+                  if (quant_level_ == OneByte)
+                  {
+                    int8_t v = static_cast<int8_t>(current_run_val);
+                    snapshot_file.write(reinterpret_cast<char*>(&v),
+                                        sizeof(int8_t));
+                  }
+                  else
+                  {
+                    int16_t v = static_cast<int16_t>(current_run_val);
+                    snapshot_file.write(reinterpret_cast<char*>(&v),
+                                        sizeof(int16_t));
+                  }
+
+                  // Reset for the new run
+                  current_run_val = next_val;
+                  current_count = 1;
+                }
+              }
+
+              // --- STEP 4: FLUSH FINAL RUN ---
+              snapshot_file.write(reinterpret_cast<char*>(&current_count),
+                                  sizeof(uint32_t));
+              if (quant_level_ == OneByte)
+              {
+                int8_t v = static_cast<int8_t>(current_run_val);
+                snapshot_file.write(reinterpret_cast<char*>(&v),
+                                    sizeof(int8_t));
+              }
+              else
+              {
+                int16_t v = static_cast<int16_t>(current_run_val);
+                snapshot_file.write(reinterpret_cast<char*>(&v),
+                                    sizeof(int16_t));
+              }
             }
           }
           else

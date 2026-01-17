@@ -35,6 +35,7 @@ enum CompressionMethod
   None,
   RLE,
   Quant,
+  QuantRLE,
 };
 
 enum QuantLevel : uint8_t
