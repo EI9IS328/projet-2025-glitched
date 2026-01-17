@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import numpy as np
 import nodeCalc
+import binDecode
 
 def getSlice(nodes, z):
     prsMatrix = [(nodeCalc.ey * nodeCalc.order + 1) * [0] \
@@ -12,16 +13,39 @@ def getSlice(nodes, z):
             prsMatrix[nodeCoord[0]][nodeCoord[1]] = float(value)
     return prsMatrix
 
+def getSliceBin(nodes, z, iteration):
+    meta = nodeCalc.getMetaDim(iteration)
+    if not meta:
+        return []
+    
+    ex, ey, ez, order, is_bin = meta
+    
+    nx, ny = (ex * order + 1), (ey * order + 1)
+    prsMatrix = [[0.0 for _ in range(ny)] for _ in range(nx)]
+    
+    for key, value in nodes.items():
+        if is_bin:
+            coord = nodeCalc.nodeCoordBin(key, ex, ey, ez, order)
+        else:
+            coord = nodeCalc.nodeCoord(key) 
+            
+        if coord[2] == z:
+            prsMatrix[coord[0]][coord[1]] = float(value)
+            
+    return prsMatrix
+
 
 def heatmap(slice):
 
     min_val = min(min(row) for row in slice)
     max_val = max(max(row) for row in slice)
 
-    plt.imshow(slice, \
-               norm=colors.SymLogNorm(linthresh=1e-10, \
-               linscale=1, vmin=min_val, vmax=max_val))
-    plt.colorbar()
+    fig, ax = plt.subplots(figsize=(12, 3))
+    im = ax.imshow(slice, 
+           norm=colors.SymLogNorm(linthresh=1e-10, linscale=1, vmin=min_val, vmax=max_val),
+           aspect='equal') # This ensures squares stay square
+
+    plt.colorbar(im, ax=ax, label='Pressure (Pa)', pad=0.02, aspect=10)
 
     plt.title("Customized heatmap with annotations")
     plt.xlabel("X-axis")
@@ -69,8 +93,11 @@ def surface3d(nodes):
     plt.show()
 
 if __name__ == "__main__":
-    values = nodeCalc.getSnapshotData(600)
-    surface3d(values)
-    # matrix = getSlice(values, 1)
-    # heatmap(matrix)
+    # values = nodeCalc.getSnapshotData(500)
+    values = binDecode.openBin(600)
+    # print(values)
+    # surface3d(values)
+    # print(getSlice(values, 5))
+    matrix = getSliceBin(values, 25, 600)
+    heatmap(matrix)
 

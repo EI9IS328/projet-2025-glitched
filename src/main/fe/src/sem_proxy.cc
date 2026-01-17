@@ -211,11 +211,12 @@ void SEMproxy::run()
     {
       metrics.startClock(MakeSnapshots);
       // create path string
+      std::string extension = (snapshot_format == BIN) ? ".bin" : ".txt";
       std::ostringstream stringStream;
       stringStream << snapshot_folder_;
       stringStream << "/snapshot";
       stringStream << indexTimeSample;
-      stringStream << ".bin";
+      stringStream << extension;
       std::string snapshot_file_path = stringStream.str();
 
       std::cout << "snapshoting at " << snapshot_file_path << std::endl;

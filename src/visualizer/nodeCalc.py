@@ -1,16 +1,24 @@
 import os
-def getMetaDim():
-    file = "snapshot600.bin"
-    dir = os.path.dirname(__file__)
-    path = os.path.normpath(os.path.join(dir, '..', '..', "snapshot", file))
-    with open (file=path, newline='') as f:
-        line = f.readline().strip("\n")
-        data = line.split(",")
+import struct
 
-    return int(data[0]), int(data[1]), int(data[2]), int(data[3])
+def getMetaDim(iteration):
+    folder = "../../snapshot"
+    base_path = os.path.join(os.path.dirname(__file__), folder, f"snapshot{iteration}")
+    
+    if os.path.exists(base_path + ".bin"):
+        with open(base_path + ".bin", "rb") as f:
+            data = f.read(16)
+            ex, ey, ez, order = struct.unpack("<iiii", data)
+            return ex, ey, ez, order, True # True means it IS binary
+            
+    elif os.path.exists(base_path + ".txt"):
+        with open(base_path + ".txt", "r") as f:
+            line = f.readline().strip().split(",")
+            return int(line[0]), int(line[1]), int(line[2]), int(line[3]), False # False means text
+            
+    return None
 
-ex, ey, ez, order = getMetaDim()
-
+ex, ey, ez, order, is_bin = getMetaDim(0)
 
 
 def getSnapshotData(iter):
@@ -64,3 +72,16 @@ def nodeCoord(globalIdx):
     nodeIdx = [i, j, k]
 
     return nodeIdx
+
+def nodeCoordBin(globalIdx, ex, ey, ez, order):
+    nx = ex * order + 1
+    ny = ey * order + 1
+    nz = ez * order + 1
+
+
+    k = globalIdx // (nx * ny)
+    remainder = globalIdx % (nx * ny)
+    j = remainder // nx
+    i = remainder % nx
+
+    return [i, j, k]
