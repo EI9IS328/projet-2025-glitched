@@ -34,6 +34,14 @@ enum CompressionMethod
 {
   None,
   RLE,
+  Quant,
+};
+
+enum QuantLevel
+{
+  OneByte,
+  TwoByte,
+  FourByte,
 };
 
 struct SnapshotStat

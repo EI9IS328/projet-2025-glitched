@@ -210,7 +210,9 @@ SEMproxy::SEMproxy(const SemProxyOptions& opt)
     compression_method_ = None;
   } else if (opt.compression_method_ == "rle") {
     compression_method_ = RLE;
-  }  // no need for else fallback as we already checked in opts and we are good devs that never ever do regression mistakes......
+  }  else {
+    throw std::runtime_error("Unsupported compression method" + opt.compression_method_);
+  }
 
   if (!opt.saveReport.empty())
   {

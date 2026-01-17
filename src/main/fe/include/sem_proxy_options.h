@@ -23,6 +23,7 @@ class SemProxyOptions
   std::string snapshot_folder_path = "";
   std::string snapshot_format = "plain";
   std::string compression_method_ = "none";
+  int quant_level_ = 4;
   std::string snapshot_colormap = "grayscale";  // grayscale|viridis|jet
   int snapshot_interval = 50;
   bool snapshot_in_situ = false;
@@ -141,7 +142,7 @@ class SemProxyOptions
           "snapshot-slice-axis must be X, Y, or Z. Got: " + snapshot_slice_axis);
     }
     compression_method_ = _str_tolower(compression_method_);
-    if (compression_method_ != "none" && compression_method_ != "rle") {
+    if (compression_method_ != "none" && compression_method_ != "rle" && compression_method_ != "quant") {
       throw std::runtime_error("unknown compression method " + compression_method_);
     }
   }
@@ -198,7 +199,8 @@ class SemProxyOptions
         "snapshot-format", "snapshot format, bin|plain",
         cxxopts::value<std::string>(o.snapshot_format))(
         "compression", "Use compression for binary snapshots (None or RLE)",
-        cxxopts::value<std::string>(o.compression_method_))(
+        cxxopts::value<std::string>(o.compression_method_))("quant-level", "number of bytes to quantize, 1|2|4",
+        cxxopts::value<int>(o.quant_level_))(
         "snapshot-colormap", "snapshot colormap for in-situ, grayscale|viridis|jet",
         cxxopts::value<std::string>(o.snapshot_colormap))(
         "watched-receivers",
