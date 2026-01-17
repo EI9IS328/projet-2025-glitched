@@ -15,9 +15,11 @@
 #include <source_and_receiver_utils.h>
 
 #include <algorithm>
+#include <cstring>
 #include <cxxopts.hpp>
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <ostream>
 #include <string>
 
@@ -173,6 +175,16 @@ SEMproxy::SEMproxy(const SemProxyOptions& opt)
 
   initFiniteElem();
 
+  if (opt.export_params)
+  {
+    std::ostringstream exportName;
+    std::time_t result = std::time(nullptr);
+    exportName << "params_sim_" << result;
+    std::ofstream exportOutput(exportName.str());
+    exportOutput << "src_coords:" << src_coord_[0] << ";" << src_coord_[1]
+                 << ";" << src_coord_[2] << std::endl;
+  }
+
   std::cout << "Number of node is " << m_mesh->getNumberOfNodes() << std::endl;
   std::cout << "Number of element is " << m_mesh->getNumberOfElements()
             << std::endl;
@@ -185,6 +197,30 @@ SEMproxy::SEMproxy(const SemProxyOptions& opt)
   std::cout << "Order of approximation will be " << order << std::endl;
   std::cout << "Time step is " << dt_ << "s" << std::endl;
   std::cout << "Simulated time is " << timemax_ << "s" << std::endl;
+
+  if (opt.export_params)
+  {
+    std::ofstream paramsFile(opt.export_path);
+    if (paramsFile.is_open())
+    {
+      paramsFile << "order, ex, ey, ez: " << order << ", " << nb_elements_[0]
+                 << ", " << nb_elements_[1] << ", " << nb_elements_[2] << "\n";
+      paramsFile << "spongex, spongey, spongez: " << spongex << ", " << spongey
+                 << ", " << spongez << "\n";
+      paramsFile << "srcx, srcy, srcz: " << src_coord_[0] << ", "
+                 << src_coord_[1] << ", " << src_coord_[2] << "\n";
+      paramsFile << "lx, ly, lz: " << domain_size_[0] << ", " << domain_size_[1]
+                 << ", " << domain_size_[2] << "\n";
+      paramsFile << "dt: " << dt_ << "\n";
+      paramsFile << "timemax: " << timemax_ << "\n";
+      paramsFile.close();
+    }
+    else
+    {
+      std::cerr << "Warning: Could not open file " << opt.export_path
+                << " for exporting parameters." << std::endl;
+    }
+  }
 }
 
 void SEMproxy::run()
@@ -312,13 +348,14 @@ void SEMproxy::run()
 
         printf("max_pressure=%f\n", max_pressure);
         float _step[3] = {
-          domain_size_[0] / (float)(nb_nodes_[0] - 1),
-          domain_size_[1] / (float)(nb_nodes_[1] - 1),
-          domain_size_[2] / (float)(nb_nodes_[2] - 1),
+            domain_size_[0] / (float)(nb_nodes_[0] - 1),
+            domain_size_[1] / (float)(nb_nodes_[1] - 1),
+            domain_size_[2] / (float)(nb_nodes_[2] - 1),
         };
-        printf("step_x = %f, step_y = %f, step_z = %f\n", _step[0], _step[1], _step[2]);
+        printf("step_x = %f, step_y = %f, step_z = %f\n", _step[0], _step[1],
+               _step[2]);
 
-        char *img = (char*)calloc(nb_nodes_[1] * nb_nodes_[2], 1);
+        char* img = (char*)calloc(nb_nodes_[1] * nb_nodes_[2], 1);
 
         for (int elementNumber = 0;
              elementNumber < m_mesh->getNumberOfElements(); elementNumber++)
@@ -341,8 +378,9 @@ void SEMproxy::run()
             {  // only get data from the slice
               continue;
             }
-            int img_offset = ((int)(global_coords[1] / _step[1])) * nb_nodes_[2] +
-                             ((int)(global_coords[2] / _step[2]));
+            int img_offset =
+                ((int)(global_coords[1] / _step[1])) * nb_nodes_[2] +
+                ((int)(global_coords[2] / _step[2]));
             if (max_pressure > 0.0 &&
                 solverData.m_pnGlobal(globalIdx, i2) > 0.0)
             {
@@ -654,19 +692,18 @@ void SEMproxy::save_watched_receivers_output_plain(Measure& metrics)
    */
   std::ofstream watchedReceiversOutput(watchedReceiversOutputPath,
                                        std::ios::trunc | std::ios::out);
-  watchedReceiversOutput << rcvs_size_ << ";" << num_sample_ << std::endl;
+  watchedReceiversOutput << rcvs_size_ << ";" << num_sample_;
 
   for (int i = 0; i < rcvs_size_; i++)
   {
     auto rcv_coord = rcvs_coord_[i];
-    watchedReceiversOutput << rcv_coord[0] << ";" << rcv_coord[1] << ";"
+    watchedReceiversOutput << std::endl
+                           << rcv_coord[0] << ";" << rcv_coord[1] << ";"
                            << rcv_coord[2] << std::endl;
     for (int j = 0; j < num_sample_; j++)
     {
       watchedReceiversOutput << pnAtReceiver(i, j);
       if (j + 1 < num_sample_) watchedReceiversOutput << ";";
-      // we always add `\n` even if it's the last receiver, as POSIX
-      // compliance is the key for an healthy life
     }
   }
   watchedReceiversOutput.close();
