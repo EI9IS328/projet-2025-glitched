@@ -22,8 +22,10 @@ class SemProxyOptions
   std::string mesh = "cartesian";
   std::string snapshot_folder_path = "";
   std::string snapshot_format = "plain";
+  std::string snapshot_colormap = "grayscale";  // grayscale|viridis|jet
   int snapshot_interval = 50;
   bool snapshot_in_situ = false;
+  std::string snapshot_slice_axis = "X";  // X, Y, or Z
   float dt = 0.001;
   float timemax = 1.5;
   bool autodt = false;
@@ -119,6 +121,13 @@ class SemProxyOptions
     {
       _testFile(saveReport);
     }
+    if (snapshot_slice_axis != "X" && snapshot_slice_axis != "x" &&
+        snapshot_slice_axis != "Y" && snapshot_slice_axis != "y" &&
+        snapshot_slice_axis != "Z" && snapshot_slice_axis != "z")
+    {
+      throw std::runtime_error(
+          "snapshot-slice-axis must be X, Y, or Z. Got: " + snapshot_slice_axis);
+    }
   }
 
   // Bind CLI flags to this instance (no --help here)
@@ -167,8 +176,13 @@ class SemProxyOptions
         "snapshot-in-situ",
         "Flag to activate in-situ snapshots, must have snapshots activated",
         cxxopts::value<bool>(o.snapshot_in_situ))(
+        "snapshot-slice-axis",
+        "Axis to slice for in-situ snapshots: X, Y, or Z (default: X)",
+        cxxopts::value<std::string>(o.snapshot_slice_axis))(
         "snapshot-format", "snapshot format, bin|plain",
         cxxopts::value<std::string>(o.snapshot_format))(
+        "snapshot-colormap", "snapshot colormap for in-situ, grayscale|viridis|jet",
+        cxxopts::value<std::string>(o.snapshot_colormap))(
         "watched-receivers",
         "Path for a list of watchedReceivers to save values from",
         cxxopts::value<std::string>(o.watchedReceiversListPath))(

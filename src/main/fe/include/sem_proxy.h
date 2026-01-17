@@ -20,6 +20,7 @@
 #include <complex>
 #include <vector>
 
+#include "colormap.h"
 #include "measure.h"
 #include "sem_proxy_options.h"
 
@@ -111,7 +112,9 @@ class SEMproxy
   int snapshot_iterations_interval_;
   std::string snapshot_folder_;
   bool snapshot_in_situ_;
+  int snapshot_slice_axis_;  // 0=X, 1=Y, 2=Z
   OutputFormat snapshot_format;
+  ColormapType snapshot_colormap_;
 
   // in-situ stats
   bool in_situ_stats_ = false;
@@ -158,8 +161,9 @@ class SEMproxy
   // allocate arrays and vectors
   void init_arrays();
 
-  // private methods to pars argv options
+  // private methods to parse argv options
   int getPhysic(string physicArg);
+  int getSliceAxis(string axisArg);
   SolverFactory::implemType getImplem(string implemArg);
   SolverFactory::methodType getMethod(string methodArg);
   SolverFactory::meshType getMesh(string meshArg);

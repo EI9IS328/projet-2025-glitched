@@ -15,11 +15,10 @@
 #include <source_and_receiver_utils.h>
 
 #include <algorithm>
-#include <cstring>
 #include <cxxopts.hpp>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <iterator>
 #include <ostream>
 #include <string>
 #include <valarray> // For FFT
@@ -84,9 +83,13 @@ SEMproxy::SEMproxy(const SemProxyOptions& opt)
   snapshot_folder_ = opt.snapshot_folder_path;
   snapshot_iterations_interval_ = opt.snapshot_interval;
   snapshot_in_situ_ = opt.snapshot_in_situ;
+  snapshot_colormap_ = colormapFromString(opt.snapshot_colormap);
+  snapshot_slice_axis_ = getSliceAxis(opt.snapshot_slice_axis);
   if (opt.snapshot_folder_path.length() > 0)
   {
     should_snapshot_ = true;
+    // Create snapshot directory if it doesn't exist
+    std::filesystem::create_directories(snapshot_folder_);
   }
   
   in_situ_stats_ = opt.in_situ_stats;
@@ -210,16 +213,6 @@ SEMproxy::SEMproxy(const SemProxyOptions& opt)
 
   initFiniteElem();
 
-  if (opt.export_params)
-  {
-    std::ostringstream exportName;
-    std::time_t result = std::time(nullptr);
-    exportName << "params_sim_" << result;
-    std::ofstream exportOutput(exportName.str());
-    exportOutput << "src_coords:" << src_coord_[0] << ";" << src_coord_[1]
-                 << ";" << src_coord_[2] << std::endl;
-  }
-
   std::cout << "Number of node is " << m_mesh->getNumberOfNodes() << std::endl;
   std::cout << "Number of element is " << m_mesh->getNumberOfElements()
             << std::endl;
@@ -232,30 +225,6 @@ SEMproxy::SEMproxy(const SemProxyOptions& opt)
   std::cout << "Order of approximation will be " << order << std::endl;
   std::cout << "Time step is " << dt_ << "s" << std::endl;
   std::cout << "Simulated time is " << timemax_ << "s" << std::endl;
-
-  if (opt.export_params)
-  {
-    std::ofstream paramsFile(opt.export_path);
-    if (paramsFile.is_open())
-    {
-      paramsFile << "order, ex, ey, ez: " << order << ", " << nb_elements_[0]
-                 << ", " << nb_elements_[1] << ", " << nb_elements_[2] << "\n";
-      paramsFile << "spongex, spongey, spongez: " << spongex << ", " << spongey
-                 << ", " << spongez << "\n";
-      paramsFile << "srcx, srcy, srcz: " << src_coord_[0] << ", "
-                 << src_coord_[1] << ", " << src_coord_[2] << "\n";
-      paramsFile << "lx, ly, lz: " << domain_size_[0] << ", " << domain_size_[1]
-                 << ", " << domain_size_[2] << "\n";
-      paramsFile << "dt: " << dt_ << "\n";
-      paramsFile << "timemax: " << timemax_ << "\n";
-      paramsFile.close();
-    }
-    else
-    {
-      std::cerr << "Warning: Could not open file " << opt.export_path
-                << " for exporting parameters." << std::endl;
-    }
-  }
 }
 
 void SEMproxy::run()
@@ -295,7 +264,14 @@ void SEMproxy::run()
       stringStream << indexTimeSample;
       if (snapshot_in_situ_)
       {
-        stringStream << ".pgm";
+        if (snapshot_colormap_ == COLORMAP_GRAYSCALE)
+        {
+          stringStream << ".pgm";
+        }
+        else
+        {
+          stringStream << ".ppm";
+        }
       }
       else
       {
@@ -344,13 +320,28 @@ void SEMproxy::run()
       }
       else  // IN SITU
       {
-        // lock x for a slice view
-        int sliced_dim = 0;  // x
+        // slice along the configured axis (0=X, 1=Y, 2=Z)
+        int sliced_dim = snapshot_slice_axis_;
         int slice_pos_along_sliced_dim = domain_size_[sliced_dim] / 2;
 
-        snapshot_file.write("P5\n", 3);
-        snapshot_file << nb_nodes_[1] << " " << nb_nodes_[2] << std::endl;
-        snapshot_file.write("255\n", 4);
+        // determine the two axes for the image (the ones we're NOT slicing)
+        // img_axis1 and img_axis2 are the remaining dimensions
+        int img_axis1 = (sliced_dim + 1) % 3;
+        int img_axis2 = (sliced_dim + 2) % 3;
+
+        // Write PGM (grayscale) or PPM (color) header
+        if (snapshot_colormap_ == COLORMAP_GRAYSCALE)
+        {
+          snapshot_file.write("P5\n", 3);
+          snapshot_file << nb_nodes_[img_axis1] << " " << nb_nodes_[img_axis2] << std::endl;
+          snapshot_file.write("255\n", 4);
+        }
+        else
+        {
+          snapshot_file.write("P6\n", 3);
+          snapshot_file << nb_nodes_[img_axis1] << " " << nb_nodes_[img_axis2] << std::endl;
+          snapshot_file.write("255\n", 4);
+        }
 
         float max_pressure;
         bool first_max_pressure = false;
@@ -389,14 +380,15 @@ void SEMproxy::run()
 
         printf("max_pressure=%f\n", max_pressure);
         float _step[3] = {
-            domain_size_[0] / (float)(nb_nodes_[0] - 1),
-            domain_size_[1] / (float)(nb_nodes_[1] - 1),
-            domain_size_[2] / (float)(nb_nodes_[2] - 1),
+          domain_size_[0] / (float)(nb_nodes_[0] - 1),
+          domain_size_[1] / (float)(nb_nodes_[1] - 1),
+          domain_size_[2] / (float)(nb_nodes_[2] - 1),
         };
-        printf("step_x = %f, step_y = %f, step_z = %f\n", _step[0], _step[1],
-               _step[2]);
+        printf("step_x = %f, step_y = %f, step_z = %f\n", _step[0], _step[1], _step[2]);
 
-        char* img = (char*)calloc(nb_nodes_[1] * nb_nodes_[2], 1);
+        // Allocate image buffer (1 byte for grayscale, 3 bytes for color)
+        int bytes_per_pixel = (snapshot_colormap_ == COLORMAP_GRAYSCALE) ? 1 : 3;
+        char* img = (char*)calloc(nb_nodes_[img_axis1] * nb_nodes_[img_axis2] * bytes_per_pixel, 1);
 
         for (int elementNumber = 0;
              elementNumber < m_mesh->getNumberOfElements(); elementNumber++)
@@ -419,22 +411,39 @@ void SEMproxy::run()
             {  // only get data from the slice
               continue;
             }
-            int img_offset =
-                ((int)(global_coords[1] / _step[1])) * nb_nodes_[2] +
-                ((int)(global_coords[2] / _step[2]));
+            int pixel_index =
+                ((int)(global_coords[img_axis1] / _step[img_axis1])) *
+                    nb_nodes_[img_axis2] +
+                ((int)(global_coords[img_axis2] / _step[img_axis2]));
+
+            uint8_t grayscale_value;
             if (max_pressure > 0.0 &&
                 solverData.m_pnGlobal(globalIdx, i2) > 0.0)
             {
-              img[img_offset] =
+              grayscale_value =
                   (solverData.m_pnGlobal(globalIdx, i2) * 255.0) / max_pressure;
             }
             else
             {
-              img[img_offset] = 0;
+              grayscale_value = 0;
+            }
+
+            if (snapshot_colormap_ == COLORMAP_GRAYSCALE)
+            {
+              img[pixel_index] = grayscale_value;
+            }
+            else
+            {
+              // Apply colormap and write RGB values
+              RGB rgb = applyColormap(grayscale_value, snapshot_colormap_);
+              int img_offset = pixel_index * 3;
+              img[img_offset] = rgb.r;
+              img[img_offset + 1] = rgb.g;
+              img[img_offset + 2] = rgb.b;
             }
           }
         }
-        snapshot_file.write(img, nb_nodes_[1] * nb_nodes_[2]);
+        snapshot_file.write(img, nb_nodes_[img_axis1] * nb_nodes_[img_axis2] * bytes_per_pixel);
         free(img);
       }
 
@@ -656,6 +665,16 @@ void SEMproxy::init_source()
   }
 }
 
+int SEMproxy::getSliceAxis(string axisArg)
+{
+  if (axisArg == "X" || axisArg == "x") return 0;
+  if (axisArg == "Y" || axisArg == "y") return 1;
+  if (axisArg == "Z" || axisArg == "z") return 2;
+
+  throw std::invalid_argument(
+      "Slice axis must be X, Y, or Z. Got: " + axisArg);
+}
+
 SolverFactory::implemType SEMproxy::getImplem(string implemArg)
 {
   if (implemArg == "makutu") return SolverFactory::MAKUTU;
@@ -738,18 +757,19 @@ void SEMproxy::save_watched_receivers_output_plain(Measure& metrics)
    */
   std::ofstream watchedReceiversOutput(watchedReceiversOutputPath,
                                        std::ios::trunc | std::ios::out);
-  watchedReceiversOutput << rcvs_size_ << ";" << num_sample_;
+  watchedReceiversOutput << rcvs_size_ << ";" << num_sample_ << std::endl;
 
   for (int i = 0; i < rcvs_size_; i++)
   {
     auto rcv_coord = rcvs_coord_[i];
-    watchedReceiversOutput << std::endl
-                           << rcv_coord[0] << ";" << rcv_coord[1] << ";"
+    watchedReceiversOutput << rcv_coord[0] << ";" << rcv_coord[1] << ";"
                            << rcv_coord[2] << std::endl;
     for (int j = 0; j < num_sample_; j++)
     {
       watchedReceiversOutput << pnAtReceiver(i, j);
       if (j + 1 < num_sample_) watchedReceiversOutput << ";";
+      // we always add `\n` even if it's the last receiver, as POSIX
+      // compliance is the key for an healthy life
     }
   }
   watchedReceiversOutput.close();

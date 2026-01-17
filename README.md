@@ -88,3 +88,15 @@ cmake ../.. -DUSE_KOKKOS=ON -DUSE_VECTOR=OFF -DCOMPILE_FD=OFF -DCMAKE_EXPORT_COM
 cd ../..
 cmake --build build/debug
 ```
+
+---
+## Quick Start, Cremi:
+```
+# clone the repo
+git submodule update --init --recursive
+export PATH="/usr/local/cuda-12/bin/:${PATH}"
+mkdir build
+cd build
+cmake .. -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DENABLE_CUDA=ON -DUSE_KOKKOS=ON
+make
+```
