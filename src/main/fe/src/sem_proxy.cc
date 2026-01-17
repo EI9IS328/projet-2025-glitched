@@ -386,7 +386,6 @@ void SEMproxy::run()
             // for the scale
             const float* original_data = solverData.m_pnGlobal.data();
             size_t nb_elems = solverData.m_pnGlobal.size();
-
             // first we find the absolute max value
             float abs_max = 0.0f;
             for (size_t i = 0; i < nb_elems; i++)
@@ -398,34 +397,38 @@ void SEMproxy::run()
                 if (abs_max < val) abs_max = val;
               }
             }
-
             if (abs_max == 0.0f) abs_max = 1.0f;  // avoid divide by 0
-
             // get max possible value depending on quant level
             float quant_type_max =
                 (quant_level_ == OneByte) ? 127.0f : 32767.0f;
             float scale = quant_type_max / abs_max;
-
             // write the header additons
             snapshot_file.write(reinterpret_cast<char*>(&quant_level_),
                                 sizeof(uint8_t));
             snapshot_file.write(reinterpret_cast<char*>(&scale), sizeof(float));
+
+            // Variable to accumulate squared errors
+            double sum_squared_error = 0.0;
+            size_t valid_count = 0;
 
             // we quantize and save the content
             if (quant_level_ ==
                 OneByte)  // ik its ugly but I don't know c++ very well
             {
               std::vector<int8_t> buffer(nb_elems);
-
               for (size_t cur = 0; cur < nb_elems; cur++)
               {
                 float cur_v = original_data[cur];
-
                 if (!std::isfinite(cur_v)) cur_v = 0.0f;
-
                 buffer[cur] = static_cast<int8_t>(std::max(
                     -quant_type_max,
                     std::min(quant_type_max, std::round(cur_v * scale))));
+
+                // Compute error for RMSE
+                float quantized_value = static_cast<float>(buffer[cur]) / scale;
+                float error = cur_v - quantized_value;
+                sum_squared_error += error * error;
+                valid_count++;
               }
               snapshot_file.write(reinterpret_cast<char*>(buffer.data()),
                                   buffer.size() * sizeof(int8_t));
@@ -433,22 +436,32 @@ void SEMproxy::run()
             else
             {
               std::vector<int16_t> buffer(nb_elems);
-
               for (size_t cur = 0; cur < nb_elems; cur++)
               {
                 float cur_v = original_data[cur];
-
                 if (!std::isfinite(cur_v)) cur_v = 0.0f;
-
                 buffer[cur] = static_cast<int16_t>(std::max(
                     -quant_type_max,
                     std::min(quant_type_max, std::round(cur_v * scale))));
+
+                float quantized_value = static_cast<float>(buffer[cur]) / scale;
+                float error = cur_v - quantized_value;
+                sum_squared_error += error * error;
+                valid_count++;
               }
               snapshot_file.write(reinterpret_cast<char*>(buffer.data()),
                                   buffer.size() * sizeof(int16_t));
             }
+
+            // Compute and output RMSE
+            double rmse = std::sqrt(sum_squared_error / valid_count);
+            std::cout << "Quantization RMSE: " << rmse << std::endl;
           }
-          else if (compression_method_ == QuantRLE)  // asked Gemini to fuse Quant and RLE, would be better to extract everything into proper functions and do it by hand but time is running out
+          else if (compression_method_ ==
+                   QuantRLE)  // asked Gemini to fuse Quant and RLE, would be
+                              // better to extract everything into proper
+                              // functions and do it by hand but time is running
+                              // out
           {
             const float* original_data = solverData.m_pnGlobal.data();
             size_t nb_elems = solverData.m_pnGlobal.size();
@@ -472,6 +485,10 @@ void SEMproxy::run()
                                 sizeof(uint8_t));
             snapshot_file.write(reinterpret_cast<char*>(&scale), sizeof(float));
 
+            // --- RMSE TRACKING ---
+            double sum_squared_error = 0.0;
+            size_t valid_count = 0;
+
             // --- STEP 2: HELPER LAMBDA ---
             // A small helper to quantize a specific index.
             // This keeps the loop logic below clean.
@@ -479,9 +496,17 @@ void SEMproxy::run()
               float cur_v = original_data[idx];
               if (!std::isfinite(cur_v)) cur_v = 0.0f;
               // The quantization math:
-              return static_cast<int32_t>(std::max(
+              int32_t quantized = static_cast<int32_t>(std::max(
                   -quant_type_max,
                   std::min(quant_type_max, std::round(cur_v * scale))));
+
+              // Compute error for RMSE
+              float quantized_value = static_cast<float>(quantized) / scale;
+              float error = cur_v - quantized_value;
+              sum_squared_error += error * error;
+              valid_count++;
+
+              return quantized;
             };
 
             // --- STEP 3: RLE LOOP ON QUANTIZED DATA ---
@@ -541,6 +566,13 @@ void SEMproxy::run()
                 snapshot_file.write(reinterpret_cast<char*>(&v),
                                     sizeof(int16_t));
               }
+            }
+
+            // --- STEP 5: COMPUTE AND OUTPUT RMSE ---
+            if (valid_count > 0)
+            {
+              double rmse = std::sqrt(sum_squared_error / valid_count);
+              std::cout << "Quantization+RLE RMSE: " << rmse << std::endl;
             }
           }
           else
