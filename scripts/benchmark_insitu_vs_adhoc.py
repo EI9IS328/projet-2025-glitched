@@ -104,6 +104,9 @@ def run_benchmark(
     elif mode == 'adhoc-bin':
         os.makedirs(snapshot_dir, exist_ok=True)
         cmd.extend(["--snapshot-folder-path", snapshot_dir, "--snapshot-format", "bin"])
+    elif mode == 'adhoc-bin-rle':
+        os.makedirs(snapshot_dir, exist_ok=True)
+        cmd.extend(["--snapshot-folder-path", snapshot_dir, "--snapshot-format", "bin", "--snapshot-rle"])
     elif mode == 'insitu':
         os.makedirs(snapshot_dir, exist_ok=True)
         cmd.extend(["--snapshot-folder-path", snapshot_dir, "--snapshot-in-situ"])
@@ -256,9 +259,9 @@ def main():
     parser.add_argument(
         "--modes", "-m",
         nargs="+",
-        choices=["base", "adhoc-plain", "adhoc-bin", "insitu", "rgb"],
-        default=["base", "adhoc-plain", "adhoc-bin", "insitu", "rgb"],
-        help="Export modes to benchmark: base (no snapshots), adhoc-plain (plain text), adhoc-bin (binary), insitu (image), rgb (colormap) (default: base adhoc-plain adhoc-bin insitu rgb)"
+        choices=["base", "adhoc-plain", "adhoc-bin", "adhoc-bin-rle", "insitu", "rgb"],
+        default=["base", "adhoc-plain", "adhoc-bin", "adhoc-bin-rle", "insitu", "rgb"],
+        help="Export modes to benchmark: base (no snapshots), adhoc-plain (plain text), adhoc-bin (binary), adhoc-bin-rle (binary with RLE), insitu (image), rgb (colormap) (default: all)"
     )
     parser.add_argument(
         "--sizes", "-s",
