@@ -1,22 +1,23 @@
 import os
 import struct
 
-def getMetaDim(iteration):
+def getMetaDim(iteration, file_type):
     folder = "../../snapshot"
-    base_path = os.path.join(os.path.dirname(__file__), folder, f"snapshot{iteration}")
+    ext = ".bin" if file_type == "bin" else ".txt"
+    path = os.path.join(os.path.dirname(__file__), folder, f"snapshot{iteration}{ext}")
     
-    if os.path.exists(base_path + ".bin"):
-        with open(base_path + ".bin", "rb") as f:
+    if not os.path.exists(path):
+        return None
+
+    if file_type == "bin":
+        with open(path, "rb") as f:
             data = f.read(16)
             ex, ey, ez, order = struct.unpack("<iiii", data)
             return {"ex": ex, "ey": ey, "ez": ez, "order": order, "is_bin": True}
-            
-    elif os.path.exists(base_path + ".txt"):
-        with open(base_path + ".txt", "r") as f:
+    else:
+        with open(path, "r") as f:
             line = f.readline().strip().split(",")
             return {"ex": int(line[0]), "ey": int(line[1]), "ez": int(line[2]), "order": int(line[3]), "is_bin": False}
-            
-    return None
 
 def get_node_coords(globalIdx, meta):
     nx = meta['ex'] * meta['order'] + 1
