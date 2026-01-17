@@ -184,6 +184,30 @@ SEMproxy::SEMproxy(const SemProxyOptions& opt)
   std::cout << "Order of approximation will be " << order << std::endl;
   std::cout << "Time step is " << dt_ << "s" << std::endl;
   std::cout << "Simulated time is " << timemax_ << "s" << std::endl;
+
+  if (opt.export_params)
+  {
+    std::ofstream paramsFile(opt.export_path);
+    if (paramsFile.is_open())
+    {
+      paramsFile << "order, ex, ey, ez: " << order << ", " << nb_elements_[0]
+                 << ", " << nb_elements_[1] << ", " << nb_elements_[2] << "\n";
+      paramsFile << "spongex, spongey, spongez: " << spongex << ", " << spongey
+                 << ", " << spongez << "\n";
+      paramsFile << "srcx, srcy, srcz: " << src_coord_[0] << ", "
+                 << src_coord_[1] << ", " << src_coord_[2] << "\n";
+      paramsFile << "lx, ly, lz: " << domain_size_[0] << ", " << domain_size_[1]
+                 << ", " << domain_size_[2] << "\n";
+      paramsFile << "dt: " << dt_ << "\n";
+      paramsFile << "timemax: " << timemax_ << "\n";
+      paramsFile.close();
+    }
+    else
+    {
+      std::cerr << "Warning: Could not open file " << opt.export_path
+                << " for exporting parameters." << std::endl;
+    }
+  }
 }
 
 void SEMproxy::run()

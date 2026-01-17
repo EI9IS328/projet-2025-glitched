@@ -40,6 +40,9 @@ class SemProxyOptions
   std::string watchedReceiversOutputFormat = "bin";
   // save code measures reports
   std::string saveReport = "";
+  // export parameters
+  bool export_params = false;
+  std::string export_path = "./exported-params.txt";
 
   void _testFile(std::string filePath)
   {
@@ -172,6 +175,10 @@ class SemProxyOptions
         "Format for the output receivers data to be saved at. bin|plain",
         cxxopts::value<std::string>(o.watchedReceiversOutputFormat))(
         "output-measures", "Path of file for saving code measures",
-        cxxopts::value<std::string>(o.saveReport));
+        cxxopts::value<std::string>(o.saveReport))(
+        "export-params", "Export simulation parameters",
+        cxxopts::value<bool>(o.export_params))(
+        "export-path", "Path to export parameters",
+        cxxopts::value<std::string>(o.export_path));
   }
 };
