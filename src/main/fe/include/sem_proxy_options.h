@@ -143,7 +143,7 @@ class SemProxyOptions
     }
     compression_method_ = _str_tolower(compression_method_);
     if (compression_method_ != "none" && compression_method_ != "rle" &&
-        compression_method_ != "quant")
+        compression_method_ != "quant" && compression_method_ != "quant_rle")
     {
       throw std::runtime_error("unknown compression method " +
                                compression_method_);
@@ -206,7 +206,7 @@ class SemProxyOptions
         cxxopts::value<std::string>(o.snapshot_slice_axis))(
         "snapshot-format", "snapshot format, bin|plain",
         cxxopts::value<std::string>(o.snapshot_format))(
-        "compression", "Use compression for binary snapshots (None or RLE)",
+        "compression", "Use compression for binary snapshots (None, RLE, Quant or Quant_RLE)",
         cxxopts::value<std::string>(o.compression_method_))(
         "quant-level", "number of bytes to quantize, 1|2",
         cxxopts::value<int>(o.quant_level_))(
