@@ -14,6 +14,10 @@ MODE_STYLES = {
     'adhoc-plain': {'color': '#e74c3c', 'marker': 's', 'linestyle': '-'},
     'adhoc-bin': {'color': '#c0392b', 'marker': 'p', 'linestyle': '-.'},
     'adhoc-bin-rle': {'color': '#8e44ad', 'marker': 'h', 'linestyle': '-.'},
+    'adhoc-bin-quant1': {'color': '#e67e22', 'marker': 'v', 'linestyle': '--'},
+    'adhoc-bin-quant2': {'color': '#d35400', 'marker': '<', 'linestyle': '--'},
+    'adhoc-bin-quant1-rle': {'color': '#9b59b6', 'marker': '>', 'linestyle': ':'},
+    'adhoc-bin-quant2-rle': {'color': '#6c3483', 'marker': '*', 'linestyle': ':'},
     'insitu': {'color': '#3498db', 'marker': '^', 'linestyle': '--'},
     'rgb': {'color': '#27ae60', 'marker': 'D', 'linestyle': ':'},
 }
@@ -23,6 +27,10 @@ MODE_LABELS = {
     'adhoc-plain': 'Ad-hoc (plain text)',
     'adhoc-bin': 'Ad-hoc (binary)',
     'adhoc-bin-rle': 'Ad-hoc (binary RLE)',
+    'adhoc-bin-quant1': 'Ad-hoc (binary quant L1)',
+    'adhoc-bin-quant2': 'Ad-hoc (binary quant L2)',
+    'adhoc-bin-quant1-rle': 'Ad-hoc (quant L1 + RLE)',
+    'adhoc-bin-quant2-rle': 'Ad-hoc (quant L2 + RLE)',
     'insitu': 'In-situ (grayscale)',
     'rgb': 'In-situ (RGB colormap)',
 }
@@ -94,7 +102,7 @@ def main():
     breakdown = grouped[grouped['grid_total'] == largest_grid][['mode', 'time_simulating', 'time_snapshots', 'time_sismos']]
     breakdown = breakdown.set_index('mode')
     # Reorder index to match our preferred order
-    order = [m for m in ['base', 'adhoc-plain', 'adhoc-bin', 'adhoc-bin-rle', 'insitu', 'rgb'] if m in breakdown.index]
+    order = [m for m in ['base', 'adhoc-plain', 'adhoc-bin', 'adhoc-bin-rle', 'adhoc-bin-quant1', 'adhoc-bin-quant2', 'adhoc-bin-quant1-rle', 'adhoc-bin-quant2-rle', 'insitu', 'rgb'] if m in breakdown.index]
     breakdown = breakdown.reindex(order)
     breakdown.index = [get_label(m) for m in breakdown.index]
     breakdown.plot(kind='bar', stacked=True, ax=ax, color=['#3498db', '#e74c3c', '#f39c12'])

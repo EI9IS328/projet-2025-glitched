@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 """
-Benchmark script to compare ad-hoc vs in-situ export approaches for HPC simulation.
+Benchmark script to compare RLE compression vs no compression for binary snapshots.
 
-This script runs the SEM simulation with different configurations and grid sizes,
-collecting timing metrics and data output statistics for analysis.
+This script focuses on comparing:
+- adhoc-bin: Binary snapshots without compression
+- adhoc-bin-rle: Binary snapshots with RLE compression
+
+Metrics collected:
+- Execution time (simulation, snapshots, total)
+- Total data exported (bytes)
 """
 
 import argparse
@@ -30,7 +35,7 @@ TIME_KERNEL_TOTAL_REGEX = rf"Time Kernel Total : {NUMBER_REGEX} seconds\."
 @dataclass
 class BenchmarkResult:
     """Holds the results of a single benchmark run."""
-    mode: str
+    compression: str  # 'none' or 'rle'
     ex: int
     ey: int
     ez: int
@@ -65,7 +70,7 @@ def parse_output(output: str) -> dict:
 
 def run_benchmark(
     bin_path: str,
-    mode: str,
+    compression: str,
     ex: int,
     ey: int,
     ez: int,
@@ -77,7 +82,7 @@ def run_benchmark(
 
     Args:
         bin_path: Path to the semproxy executable
-        mode: Export mode - 'insitu' or 'adhoc'
+        compression: Compression mode ('none', 'rle', 'quant1', 'quant2', 'quant1_rle', 'quant2_rle')
         ex, ey, ez: Grid dimensions
         timemax: Maximum simulation time
         output_dir: Directory for temporary output files
@@ -85,46 +90,30 @@ def run_benchmark(
     Returns:
         BenchmarkResult if successful, None otherwise
     """
-    snapshot_dir = os.path.join(output_dir, f"snapshots_{mode}_{ex}x{ey}x{ez}")
+    snapshot_dir = os.path.join(output_dir, f"snapshots_{compression}_{ex}x{ey}x{ez}")
+    os.makedirs(snapshot_dir, exist_ok=True)
 
-    # Build command based on mode
+    # Build command
     cmd = [
         bin_path,
         "--ex", str(ex),
         "--ey", str(ey),
         "--ez", str(ez),
         "--timemax", str(timemax),
+        "--snapshot-folder-path", snapshot_dir,
+        "--snapshot-format", "bin",
     ]
 
-    if mode == 'base':
-        pass  # No snapshot arguments
-    elif mode == 'adhoc-plain':
-        os.makedirs(snapshot_dir, exist_ok=True)
-        cmd.extend(["--snapshot-folder-path", snapshot_dir, "--snapshot-format", "plain"])
-    elif mode == 'adhoc-bin':
-        os.makedirs(snapshot_dir, exist_ok=True)
-        cmd.extend(["--snapshot-folder-path", snapshot_dir, "--snapshot-format", "bin"])
-    elif mode == 'adhoc-bin-rle':
-        os.makedirs(snapshot_dir, exist_ok=True)
-        cmd.extend(["--snapshot-folder-path", snapshot_dir, "--snapshot-format", "bin", "--snapshot-rle"])
-    elif mode == 'adhoc-bin-quant1':
-        os.makedirs(snapshot_dir, exist_ok=True)
-        cmd.extend(["--snapshot-folder-path", snapshot_dir, "--snapshot-format", "bin", "--compression", "quant", "--quant-level", "1"])
-    elif mode == 'adhoc-bin-quant2':
-        os.makedirs(snapshot_dir, exist_ok=True)
-        cmd.extend(["--snapshot-folder-path", snapshot_dir, "--snapshot-format", "bin", "--compression", "quant", "--quant-level", "2"])
-    elif mode == 'adhoc-bin-quant1-rle':
-        os.makedirs(snapshot_dir, exist_ok=True)
-        cmd.extend(["--snapshot-folder-path", snapshot_dir, "--snapshot-format", "bin", "--compression", "quant_rle", "--quant-level", "1"])
-    elif mode == 'adhoc-bin-quant2-rle':
-        os.makedirs(snapshot_dir, exist_ok=True)
-        cmd.extend(["--snapshot-folder-path", snapshot_dir, "--snapshot-format", "bin", "--compression", "quant_rle", "--quant-level", "2"])
-    elif mode == 'insitu':
-        os.makedirs(snapshot_dir, exist_ok=True)
-        cmd.extend(["--snapshot-folder-path", snapshot_dir, "--snapshot-in-situ"])
-    elif mode == 'rgb':
-        os.makedirs(snapshot_dir, exist_ok=True)
-        cmd.extend(["--snapshot-folder-path", snapshot_dir, "--snapshot-in-situ", "--snapshot-colormap", "viridis"])
+    if compression == 'rle':
+        cmd.append("--snapshot-rle")
+    elif compression == 'quant1':
+        cmd.extend(["--compression", "quant", "--quant-level", "1"])
+    elif compression == 'quant2':
+        cmd.extend(["--compression", "quant", "--quant-level", "2"])
+    elif compression == 'quant1_rle':
+        cmd.extend(["--compression", "quant_rle", "--quant-level", "1"])
+    elif compression == 'quant2_rle':
+        cmd.extend(["--compression", "quant_rle", "--quant-level", "2"])
 
     print(f"  Running: {' '.join(cmd)}")
 
@@ -145,7 +134,7 @@ def run_benchmark(
         metrics = parse_output(output)
 
         return BenchmarkResult(
-            mode=mode,
+            compression=compression,
             ex=ex,
             ey=ey,
             ez=ez,
@@ -170,18 +159,18 @@ def run_benchmark(
 
 def run_benchmarks(
     bin_path: str,
-    modes: list[str],
+    compressions: list[str],
     grid_sizes: list[tuple[int, int, int]],
     timemax: float,
     output_dir: str,
     num_runs: int = 1,
 ) -> list[BenchmarkResult]:
     """
-    Run benchmarks for all combinations of modes and grid sizes.
+    Run benchmarks for all combinations of compression modes and grid sizes.
 
     Args:
         bin_path: Path to the semproxy executable
-        modes: List of export modes to test
+        compressions: List of compression modes to test
         grid_sizes: List of (ex, ey, ez) tuples
         timemax: Maximum simulation time
         output_dir: Directory for temporary output files
@@ -191,17 +180,17 @@ def run_benchmarks(
         List of BenchmarkResult objects
     """
     results = []
-    total_configs = len(modes) * len(grid_sizes) * num_runs
+    total_configs = len(compressions) * len(grid_sizes) * num_runs
     current = 0
 
-    for mode, (ex, ey, ez) in itertools.product(modes, grid_sizes):
+    for compression, (ex, ey, ez) in itertools.product(compressions, grid_sizes):
         for run_idx in range(num_runs):
             current += 1
-            print(f"[{current}/{total_configs}] Mode: {mode}, Grid: {ex}x{ey}x{ez}, Run: {run_idx + 1}/{num_runs}")
+            print(f"[{current}/{total_configs}] Compression: {compression}, Grid: {ex}x{ey}x{ez}, Run: {run_idx + 1}/{num_runs}")
 
             result = run_benchmark(
                 bin_path=bin_path,
-                mode=mode,
+                compression=compression,
                 ex=ex,
                 ey=ey,
                 ez=ez,
@@ -213,7 +202,8 @@ def run_benchmarks(
                 results.append(result)
                 print(f"    Simulating: {result.time_simulating:.4f}s, "
                       f"Snapshots: {result.time_snapshots:.4f}s, "
-                      f"Bytes: {result.total_bytes:.0f}")
+                      f"Total: {result.time_kernel_total:.4f}s, "
+                      f"Data: {result.total_bytes / 1024 / 1024:.2f} MB")
             else:
                 print(f"    FAILED")
 
@@ -223,9 +213,9 @@ def run_benchmarks(
 def save_results_csv(results: list[BenchmarkResult], output_path: str):
     """Save benchmark results to a CSV file."""
     fieldnames = [
-        'mode', 'ex', 'ey', 'ez', 'grid_total',
+        'compression', 'ex', 'ey', 'ez', 'grid_total',
         'time_simulating', 'time_snapshots', 'time_sismos',
-        'time_kernel_total', 'total_bytes',
+        'time_kernel_total', 'total_bytes', 'total_mb',
     ]
 
     with open(output_path, 'w', newline='') as f:
@@ -234,7 +224,7 @@ def save_results_csv(results: list[BenchmarkResult], output_path: str):
 
         for r in results:
             writer.writerow({
-                'mode': r.mode,
+                'compression': r.compression,
                 'ex': r.ex,
                 'ey': r.ey,
                 'ez': r.ez,
@@ -244,14 +234,60 @@ def save_results_csv(results: list[BenchmarkResult], output_path: str):
                 'time_sismos': r.time_sismos,
                 'time_kernel_total': r.time_kernel_total,
                 'total_bytes': r.total_bytes,
+                'total_mb': r.total_bytes / 1024 / 1024,
             })
 
-    print(f"Results saved to {output_path}")
+    print(f"\nResults saved to {output_path}")
+
+
+def print_summary(results: list[BenchmarkResult]):
+    """Print a summary comparison of all compression modes."""
+    if not results:
+        return
+
+    print("\n" + "="*80)
+    print("SUMMARY: Compression Comparison")
+    print("="*80)
+
+    # Group by grid size
+    grid_sizes = sorted(set((r.ex, r.ey, r.ez) for r in results))
+    compression_modes = sorted(set(r.compression for r in results))
+
+    for ex, ey, ez in grid_sizes:
+        grid_results = [r for r in results if (r.ex, r.ey, r.ez) == (ex, ey, ez)]
+
+        # Get baseline (no compression)
+        none_results = [r for r in grid_results if r.compression == 'none']
+        if not none_results:
+            continue
+
+        none_time = sum(r.time_kernel_total for r in none_results) / len(none_results)
+        none_bytes = sum(r.total_bytes for r in none_results) / len(none_results)
+
+        print(f"\nGrid {ex}x{ey}x{ez} ({ex*ey*ez} elements):")
+        print(f"  {'Mode':<20} {'Time (s)':<12} {'Ratio':<10} {'Data (MB)':<12} {'Compression':<12} {'Reduction':<10}")
+        print(f"  {'-'*20} {'-'*12} {'-'*10} {'-'*12} {'-'*12} {'-'*10}")
+
+        for mode in compression_modes:
+            mode_results = [r for r in grid_results if r.compression == mode]
+            if not mode_results:
+                continue
+
+            mode_time = sum(r.time_kernel_total for r in mode_results) / len(mode_results)
+            mode_bytes = sum(r.total_bytes for r in mode_results) / len(mode_results)
+
+            time_ratio = mode_time / none_time if none_time > 0 else 0
+            compression_ratio = mode_bytes / none_bytes if none_bytes > 0 else 0
+            reduction = (1 - compression_ratio) * 100
+
+            print(f"  {mode:<20} {mode_time:<12.4f} {time_ratio:<10.2f} {mode_bytes/1024/1024:<12.2f} {compression_ratio:<12.2f} {reduction:<10.1f}%")
+
+    print("="*80)
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Benchmark in-situ vs ad-hoc export approaches for HPC simulation"
+        description="Benchmark compression methods for binary snapshots"
     )
     parser.add_argument(
         "--bin", "-b",
@@ -261,26 +297,26 @@ def main():
     parser.add_argument(
         "--output", "-o",
         default=None,
-        help="Output CSV file path (default: benchmark_TIMESTAMP.csv)"
+        help="Output CSV file path (default: benchmark_compression_TIMESTAMP.csv)"
     )
     parser.add_argument(
         "--output-dir",
-        default="./benchmark_tmp",
-        help="Directory for temporary output files (default: ./benchmark_tmp)"
+        default="./benchmark_compression_tmp",
+        help="Directory for temporary output files (default: ./benchmark_compression_tmp)"
     )
     parser.add_argument(
-        "--modes", "-m",
+        "--compressions", "-c",
         nargs="+",
-        choices=["base", "adhoc-plain", "adhoc-bin", "adhoc-bin-rle", "adhoc-bin-quant1", "adhoc-bin-quant2", "adhoc-bin-quant1-rle", "adhoc-bin-quant2-rle", "insitu", "rgb"],
-        default=["base", "adhoc-plain", "adhoc-bin", "adhoc-bin-rle", "adhoc-bin-quant1", "adhoc-bin-quant2", "adhoc-bin-quant1-rle", "adhoc-bin-quant2-rle", "insitu", "rgb"],
-        help="Export modes to benchmark: base (no snapshots), adhoc-plain (plain text), adhoc-bin (binary), adhoc-bin-rle (binary with RLE), adhoc-bin-quant1/2 (binary with quantization), adhoc-bin-quant1/2-rle (quantization + RLE), insitu (image), rgb (colormap) (default: all)"
+        choices=["none", "rle", "quant1", "quant2", "quant1_rle", "quant2_rle"],
+        default=["none", "rle", "quant1", "quant2", "quant1_rle", "quant2_rle"],
+        help="Compression modes to test (default: all)"
     )
     parser.add_argument(
         "--sizes", "-s",
         nargs="+",
         type=int,
-        default=[10, 20, 30, 40, 50],
-        help="Grid sizes to test (same for ex, ey, ez) (default: 10 20 30 40 50)"
+        default=[10, 20, 30, 40, 50, 75, 100, 125, 150],
+        help="Grid sizes to test (same for ex, ey, ez) (default: 10 20 30 40 50 75 100 125 150)"
     )
     parser.add_argument(
         "--timemax", "-t",
@@ -291,8 +327,8 @@ def main():
     parser.add_argument(
         "--runs", "-r",
         type=int,
-        default=1,
-        help="Number of runs per configuration (default: 1)"
+        default=3,
+        help="Number of runs per configuration for averaging (default: 3)"
     )
 
     args = parser.parse_args()
@@ -311,11 +347,11 @@ def main():
     # Set output filename
     if args.output is None:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        args.output = f"benchmark_{timestamp}.csv"
+        args.output = f"benchmark_compression_{timestamp}.csv"
 
-    print(f"\nBenchmark Configuration:")
+    print(f"\nCompression Benchmark Configuration:")
     print(f"  Binary: {args.bin}")
-    print(f"  Modes: {args.modes}")
+    print(f"  Compression modes: {args.compressions}")
     print(f"  Grid sizes: {grid_sizes}")
     print(f"  Timemax: {args.timemax}s")
     print(f"  Runs per config: {args.runs}")
@@ -325,7 +361,7 @@ def main():
     # Run benchmarks
     results = run_benchmarks(
         bin_path=args.bin,
-        modes=args.modes,
+        compressions=args.compressions,
         grid_sizes=grid_sizes,
         timemax=args.timemax,
         output_dir=args.output_dir,
@@ -338,6 +374,9 @@ def main():
 
     # Save results
     save_results_csv(results, args.output)
+
+    # Print summary
+    print_summary(results)
 
     # Cleanup
     if os.path.exists(args.output_dir):
