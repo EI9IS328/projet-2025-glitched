@@ -5,15 +5,15 @@ import os
 import matplotlib.pyplot as plt
 
 # --- CONFIGURATION ---
-PROXY_EXE = "./bin/semproxy"
-VISUALIZER_SCRIPT = "visualizer.py"
+PROXY_EXE = "../build/bin/semproxy"
+VISUALIZER_SCRIPT = "../src/visualizer/visualizerBench.py"
 SNAPSHOT_DIR = "snapshot"
 ITERATION = 0
 Z_SLICE = 10
 
 DIMENSIONS = [10, 20, 40, 60, 80]
 FORMATS = ["bin", "plain"] 
-REPETITIONS = 2 
+REPETITIONS = 3
 
 def run_benchmark():
     all_results = {f_type: [] for f_type in FORMATS}
