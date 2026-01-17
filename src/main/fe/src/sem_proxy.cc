@@ -21,8 +21,37 @@
 #include <iostream>
 #include <ostream>
 #include <string>
+#include <valarray> // For FFT
+#include <limits> // For numeric_limits
+#include <numeric> // For std::accumulate (mean)
+#include <filesystem> // For creating directories
 
 using namespace SourceAndReceiverUtils;
+
+const double PI = 3.141592653589793238460;
+typedef std::complex<double> Complex;
+typedef std::valarray<Complex> CArray;
+
+// https://stackoverflow.com/a/37729648/5353851
+// /!\ FFT implementation was done using gemini-cli
+void fft(CArray& x)
+{
+    const size_t N = x.size();
+    if (N <= 1) return;
+    // divide
+    CArray even = x[std::slice(0, N/2, 2)];
+    CArray  odd = x[std::slice(1, N/2, 2)];
+    // conquer
+    fft(even);
+    fft(odd);
+    // combine
+    for (size_t k = 0; k < N/2; ++k)
+    {
+        Complex t = std::polar(1.0, -2 * PI * k / N) * odd[k];
+        x[k]    = even[k] + t;
+        x[k+N/2] = even[k] - t;
+    }
+}
 
 SEMproxy::SEMproxy(const SemProxyOptions& opt)
 {
@@ -61,6 +90,12 @@ SEMproxy::SEMproxy(const SemProxyOptions& opt)
     should_snapshot_ = true;
     // Create snapshot directory if it doesn't exist
     std::filesystem::create_directories(snapshot_folder_);
+  }
+  
+  in_situ_stats_ = opt.in_situ_stats;
+  in_situ_folder_ = opt.in_situ_folder;
+  if (in_situ_stats_) {
+      std::filesystem::create_directories(in_situ_folder_);
   }
 
   const SolverFactory::methodType methodType = getMethod(opt.method);
@@ -215,6 +250,12 @@ void SEMproxy::run()
     if (should_snapshot_ &&
         indexTimeSample % snapshot_iterations_interval_ == 0)
     {
+      // in-situ stats for snapshots
+      if (in_situ_stats_) {
+          this->i2 = i2;
+          computeInSituSnapshotStats(solverData.m_pnGlobal, indexTimeSample);
+      }
+      
       metrics.startClock(MakeSnapshots);
       // create path string
       std::string extension = (snapshot_format == BIN) ? ".bin" : ".txt";
@@ -479,8 +520,13 @@ void SEMproxy::run()
       save_watched_receivers_output_plain(metrics);
     }
     metrics.stopClockAndAppend(OutputSismos);
-  }
-  metrics.stopClockAndAppend(Global);
+    }
+    
+    if (in_situ_stats_) {
+        exportInSituStats();
+    }
+  
+    metrics.stopClockAndAppend(Global);
 
   cout << metrics;
   if (saveReportPath)
@@ -751,4 +797,89 @@ void SEMproxy::save_watched_receivers_output_plain(Measure& metrics)
   watchedReceiversOutput.close();
   metrics.measureIO(watchedReceiversOutputPath);
   metrics.getTotalBytes();
+}
+
+void SEMproxy::computeInSituSnapshotStats(const arrayReal& pressure, int index)
+{
+    float min_val = std::numeric_limits<float>::max();
+    float max_val = std::numeric_limits<float>::lowest();
+    double sum = 0.0;
+    
+    int num_nodes = m_mesh->getNumberOfNodes();
+    
+    for (int i = 0; i < num_nodes; ++i) {
+        float val = pressure(i, i2);
+        if (val < min_val) min_val = val;
+        if (val > max_val) max_val = val;
+        sum += val;
+    }
+    float mean_val = static_cast<float>(sum / num_nodes);
+    snapshot_stats_.push_back({index, min_val, max_val, mean_val});
+}
+
+void SEMproxy::exportInSituStats()
+{
+    // export sismos
+    std::string sismos_path = in_situ_folder_ + "/sismos_data.csv";
+    std::ofstream sismos_file(sismos_path);
+    sismos_file << "time";
+    for(int i=0; i<rcvs_size_; ++i) sismos_file << ",recv_" << i;
+    sismos_file << "\n";
+    
+    // pnAtReceiver(rcv, time)
+    for(int t=0; t<num_sample_; ++t) {
+        float time = t * dt_;
+        sismos_file << time;
+        for(int i=0; i<rcvs_size_; ++i) {
+            sismos_file << "," << pnAtReceiver(i, t);
+        }
+        sismos_file << "\n";
+    }
+    sismos_file.close();
+    
+    // export FFT
+    int n = num_sample_;
+    int N = 1;
+    while(N < n) N *= 2;
+    
+    std::string fft_path = in_situ_folder_ + "/fft_data.csv";
+    std::ofstream fft_file(fft_path);
+    fft_file << "freq";
+    for(int i=0; i<rcvs_size_; ++i) fft_file << ",recv_" << i;
+    fft_file << "\n";
+    
+    std::vector<std::vector<double>> fft_magnitudes(rcvs_size_);
+    
+    for(int i=0; i<rcvs_size_; ++i) {
+        CArray data(N);
+        for(int t=0; t<n; ++t) {
+            data[t] = Complex(pnAtReceiver(i, t), 0);
+        }
+        
+        fft(data);
+        
+        fft_magnitudes[i].resize(N/2);
+        for(int k=0; k<N/2; ++k) {
+            fft_magnitudes[i][k] = std::abs(data[k]);
+        }
+    }
+    
+    double df = (1.0 / dt_) / N;
+    for(int k=0; k<N/2; ++k) {
+        fft_file << k * df;
+        for(int i=0; i<rcvs_size_; ++i) {
+            fft_file << "," << fft_magnitudes[i][k];
+        }
+        fft_file << "\n";
+    }
+    fft_file.close();
+    
+    // export
+    std::string snap_path = in_situ_folder_ + "/snapshot_stats.csv";
+    std::ofstream snap_file(snap_path);
+    snap_file << "index,min,max,mean\n";
+    for(const auto& s : snapshot_stats_) {
+        snap_file << s.index << "," << s.min_val << "," << s.max_val << "," << s.mean_val << "\n";
+    }
+    snap_file.close();
 }

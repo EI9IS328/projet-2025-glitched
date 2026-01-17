@@ -17,6 +17,8 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <complex>
+#include <vector>
 
 #include "colormap.h"
 #include "measure.h"
@@ -26,6 +28,14 @@ enum OutputFormat
 {
   BIN,
   PLAIN,
+};
+
+struct SnapshotStat
+{
+  int index;
+  float min_val;
+  float max_val;
+  float mean_val;
 };
 
 /**
@@ -105,6 +115,13 @@ class SEMproxy
   int snapshot_slice_axis_;  // 0=X, 1=Y, 2=Z
   OutputFormat snapshot_format;
   ColormapType snapshot_colormap_;
+
+  // in-situ stats
+  bool in_situ_stats_ = false;
+  std::string in_situ_folder_;
+  std::vector<SnapshotStat> snapshot_stats_;
+  void computeInSituSnapshotStats(const arrayReal& pressure, int index);
+  void exportInSituStats();
 
   // physics
   bool isElastic_;
