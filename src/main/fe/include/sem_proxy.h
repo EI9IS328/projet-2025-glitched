@@ -14,10 +14,10 @@
 #include <solver_factory.h>
 #include <utils.h>
 
+#include <complex>
 #include <memory>
 #include <optional>
 #include <string>
-#include <complex>
 #include <vector>
 
 #include "colormap.h"
@@ -28,6 +28,19 @@ enum OutputFormat
 {
   BIN,
   PLAIN,
+};
+
+enum CompressionMethod
+{
+  None,
+  RLE,
+  Quant,
+};
+
+enum QuantLevel : uint8_t
+{
+  OneByte = 0,
+  TwoByte = 1,
 };
 
 struct SnapshotStat
@@ -114,7 +127,8 @@ class SEMproxy
   bool snapshot_in_situ_;
   int snapshot_slice_axis_;  // 0=X, 1=Y, 2=Z
   OutputFormat snapshot_format;
-  bool snapshot_rle_;
+  CompressionMethod compression_method_;
+  QuantLevel quant_level_;
   ColormapType snapshot_colormap_;
 
   // in-situ stats
