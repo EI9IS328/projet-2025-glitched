@@ -13,6 +13,11 @@
           ninja
           gdb
           rocmPackages.llvm.openmp
+          python3
+          python313Packages.numpy
+          python313Packages.matplotlib
+          python313Packages.pandas
+          python313Packages.scipy
         ];
       };
     }
