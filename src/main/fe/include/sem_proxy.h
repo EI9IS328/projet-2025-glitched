@@ -14,9 +14,11 @@
 #include <solver_factory.h>
 #include <utils.h>
 
+#include <complex>
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "colormap.h"
 #include "measure.h"
@@ -26,6 +28,28 @@ enum OutputFormat
 {
   BIN,
   PLAIN,
+};
+
+enum CompressionMethod
+{
+  None,
+  RLE,
+  Quant,
+  QuantRLE,
+};
+
+enum QuantLevel : uint8_t
+{
+  OneByte = 0,
+  TwoByte = 1,
+};
+
+struct SnapshotStat
+{
+  int index;
+  float min_val;
+  float max_val;
+  float mean_val;
 };
 
 /**
@@ -104,7 +128,16 @@ class SEMproxy
   bool snapshot_in_situ_;
   int snapshot_slice_axis_;  // 0=X, 1=Y, 2=Z
   OutputFormat snapshot_format;
+  CompressionMethod compression_method_;
+  QuantLevel quant_level_;
   ColormapType snapshot_colormap_;
+
+  // in-situ stats
+  bool in_situ_stats_ = false;
+  std::string in_situ_folder_;
+  std::vector<SnapshotStat> snapshot_stats_;
+  void computeInSituSnapshotStats(const arrayReal& pressure, int index);
+  void exportInSituStats();
 
   // physics
   bool isElastic_;

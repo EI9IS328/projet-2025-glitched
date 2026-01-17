@@ -22,6 +22,8 @@ class SemProxyOptions
   std::string mesh = "cartesian";
   std::string snapshot_folder_path = "";
   std::string snapshot_format = "plain";
+  std::string compression_method_ = "none";
+  int quant_level_ = 2;
   std::string snapshot_colormap = "grayscale";  // grayscale|viridis|jet
   int snapshot_interval = 50;
   bool snapshot_in_situ = false;
@@ -45,6 +47,20 @@ class SemProxyOptions
   // export parameters
   bool export_params = false;
   std::string export_path = "./exported-params.txt";
+  // in-situ stats
+  bool in_situ_stats = false;
+  std::string in_situ_folder = "insitu_stats";
+
+  std::string _str_tolower(std::string s)
+  {
+    std::transform(s.begin(), s.end(), s.begin(),
+                   // static_cast<int(*)(int)>(std::tolower)         // wrong
+                   // [](int c){ return std::tolower(c); }           // wrong
+                   // [](char c){ return std::tolower(c); }          // wrong
+                   [](unsigned char c) { return std::tolower(c); }  // correct
+    );
+    return s;
+  }
 
   void _testFile(std::string filePath)
   {
@@ -122,8 +138,20 @@ class SemProxyOptions
         snapshot_slice_axis != "Y" && snapshot_slice_axis != "y" &&
         snapshot_slice_axis != "Z" && snapshot_slice_axis != "z")
     {
-      throw std::runtime_error(
-          "snapshot-slice-axis must be X, Y, or Z. Got: " + snapshot_slice_axis);
+      throw std::runtime_error("snapshot-slice-axis must be X, Y, or Z. Got: " +
+                               snapshot_slice_axis);
+    }
+    compression_method_ = _str_tolower(compression_method_);
+    if (compression_method_ != "none" && compression_method_ != "rle" &&
+        compression_method_ != "quant" && compression_method_ != "quant_rle")
+    {
+      throw std::runtime_error("unknown compression method " +
+                               compression_method_);
+    }
+    if (quant_level_ != 1 && quant_level_ != 2)
+    {
+      throw std::runtime_error("unsupported quantization level: " +
+                               std::to_string(quant_level_));
     }
   }
 
@@ -178,7 +206,12 @@ class SemProxyOptions
         cxxopts::value<std::string>(o.snapshot_slice_axis))(
         "snapshot-format", "snapshot format, bin|plain",
         cxxopts::value<std::string>(o.snapshot_format))(
-        "snapshot-colormap", "snapshot colormap for in-situ, grayscale|viridis|jet",
+        "compression", "Use compression for binary snapshots (None, RLE, Quant or Quant_RLE)",
+        cxxopts::value<std::string>(o.compression_method_))(
+        "quant-level", "number of bytes to quantize, 1|2",
+        cxxopts::value<int>(o.quant_level_))(
+        "snapshot-colormap",
+        "snapshot colormap for in-situ, grayscale|viridis|jet",
         cxxopts::value<std::string>(o.snapshot_colormap))(
         "watched-receivers",
         "Path for a list of watchedReceivers to save values from",
@@ -193,6 +226,10 @@ class SemProxyOptions
         "export-params", "Export simulation parameters",
         cxxopts::value<bool>(o.export_params))(
         "export-path", "Path to export parameters",
-        cxxopts::value<std::string>(o.export_path));
+        cxxopts::value<std::string>(o.export_path))(
+        "in-situ-stats", "Compute in-situ statistics",
+        cxxopts::value<bool>(o.in_situ_stats))(
+        "insitu-folder", "Folder to save in-situ stats",
+        cxxopts::value<std::string>(o.in_situ_folder));
   }
 };
