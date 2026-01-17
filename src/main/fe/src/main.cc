@@ -75,9 +75,10 @@ int main(int argc, char *argv[])
     cout << "| Initializing SEM Application ... |" << endl;
     cout << "+==================================+\n" << endl;
 
-    SEMproxy semsim(opt);
-
-    compute_loop(semsim);
+    {
+      SEMproxy semsim(opt);
+      compute_loop(semsim);
+    }  // Ensure SEMproxy destructor runs before Kokkos::finalize()
 
 #ifdef USE_KOKKOS
   }

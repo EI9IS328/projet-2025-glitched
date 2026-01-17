@@ -18,6 +18,7 @@
 #include <optional>
 #include <string>
 
+#include "colormap.h"
 #include "measure.h"
 #include "sem_proxy_options.h"
 
@@ -102,6 +103,7 @@ class SEMproxy
   std::string snapshot_folder_;
   bool snapshot_in_situ_;
   OutputFormat snapshot_format;
+  ColormapType snapshot_colormap_;
 
   // physics
   bool isElastic_;

@@ -6,6 +6,7 @@ if(COMPILE_SEM)
     src/main.cc
     src/sem_proxy.cc
     src/measure.cc
+    src/colormap.cc
   )
 
   target_include_directories(semproxy
