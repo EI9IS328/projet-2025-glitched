@@ -22,6 +22,7 @@ class SemProxyOptions
   std::string mesh = "cartesian";
   std::string snapshot_folder_path = "";
   std::string snapshot_format = "plain";
+  bool snapshot_rle = false;
   std::string snapshot_colormap = "grayscale";  // grayscale|viridis|jet
   int snapshot_interval = 50;
   bool snapshot_in_situ = false;
@@ -181,6 +182,8 @@ class SemProxyOptions
         cxxopts::value<std::string>(o.snapshot_slice_axis))(
         "snapshot-format", "snapshot format, bin|plain",
         cxxopts::value<std::string>(o.snapshot_format))(
+        "snapshot-rle", "Use run-length encoding for binary snapshots",
+        cxxopts::value<bool>(o.snapshot_rle))(
         "snapshot-colormap", "snapshot colormap for in-situ, grayscale|viridis|jet",
         cxxopts::value<std::string>(o.snapshot_colormap))(
         "watched-receivers",

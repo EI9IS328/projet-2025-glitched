@@ -25,6 +25,7 @@
 #include <limits> // For numeric_limits
 #include <numeric> // For std::accumulate (mean)
 #include <filesystem> // For creating directories
+#include <cstdint> // For uint32_t (RLE)
 
 using namespace SourceAndReceiverUtils;
 
@@ -205,6 +206,7 @@ SEMproxy::SEMproxy(const SemProxyOptions& opt)
   }
 
   snapshot_format = opt.snapshot_format == "bin" ? BIN : PLAIN;
+  snapshot_rle_ = opt.snapshot_rle;
 
   if (!opt.saveReport.empty())
   {
@@ -301,6 +303,7 @@ void SEMproxy::run()
             int ey;
             int ez;
             int order;
+            int rle;  // 0 = raw, 1 = RLE encoded
           };
 
           struct snapshot_header_t hdr = {
@@ -308,15 +311,38 @@ void SEMproxy::run()
             .ey = ey_,
             .ez = ez_,
             .order = order_,
+            .rle = snapshot_rle_ ? 1 : 0,
           };
           snapshot_file.write(reinterpret_cast<char*>(&hdr), sizeof(hdr));
 
-          snapshot_file.write(
-            reinterpret_cast<char*>(solverData.m_pnGlobal.data()),
-            solverData.m_pnGlobal.size() * sizeof(float));
+          if (snapshot_rle_)
+          {
+            // RLE encoding: write (count, value) pairs
+            const float* data = solverData.m_pnGlobal.data();
+            size_t size = solverData.m_pnGlobal.size();
+            size_t i = 0;
+            while (i < size)
+            {
+              float value = data[i];
+              uint32_t count = 1;
+              while (i + count < size && data[i + count] == value && count < UINT32_MAX)
+              {
+                count++;
+              }
+              snapshot_file.write(reinterpret_cast<char*>(&count), sizeof(uint32_t));
+              snapshot_file.write(reinterpret_cast<const char*>(&value), sizeof(float));
+              i += count;
+            }
           }
           else
           {
+            snapshot_file.write(
+              reinterpret_cast<char*>(solverData.m_pnGlobal.data()),
+              solverData.m_pnGlobal.size() * sizeof(float));
+          }
+        }
+        else
+        {
           snapshot_file << ex_ << ',' << ey_ << ',' << ez_ << ',' << order_ << '\n';
           for (int elementNumber = 0;
                elementNumber < m_mesh->getNumberOfElements(); elementNumber++)
