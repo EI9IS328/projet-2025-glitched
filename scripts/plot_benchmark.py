@@ -44,11 +44,6 @@ def main():
         "csv_file",
         help="Path to benchmark CSV file"
     )
-    parser.add_argument(
-        "--output", "-o",
-        default=None,
-        help="Output image file (default: display interactively)"
-    )
     args = parser.parse_args()
 
     df = pd.read_csv(args.csv_file)
@@ -57,11 +52,9 @@ def main():
     grouped = df.groupby(['mode', 'grid_total']).mean(numeric_only=True).reset_index()
 
     modes = grouped['mode'].unique()
-    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-    fig.suptitle('FUnTiDES Benchmark: Export Mode Comparison', fontsize=14, fontweight='bold')
 
     # Plot 1: Snapshot time vs grid size
-    ax = axes[0, 0]
+    fig, ax = plt.subplots(figsize=(6, 5))
     for mode in modes:
         data = grouped[grouped['mode'] == mode]
         style = get_style(mode)
@@ -70,12 +63,15 @@ def main():
                 color=style['color'], label=get_label(mode), linewidth=2, markersize=8)
     ax.set_xlabel('Grid Total (elements)')
     ax.set_ylabel('Time (seconds)')
-    ax.set_title('Snapshot Time vs Grid Size')
     ax.legend()
     ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig('snapshot_time_vs_grid_size.png', dpi=150)
+    print("Saved snapshot_time_vs_grid_size.png")
+    plt.close()
 
     # Plot 2: Total bytes vs grid size (log scale)
-    ax = axes[0, 1]
+    fig, ax = plt.subplots(figsize=(6, 5))
     for mode in modes:
         data = grouped[grouped['mode'] == mode]
         style = get_style(mode)
@@ -85,12 +81,15 @@ def main():
     ax.set_xlabel('Grid Total (elements)')
     ax.set_ylabel('Data Written (MB)')
     ax.set_yscale('log')
-    ax.set_title('Data Output vs Grid Size')
     ax.legend()
     ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig('data_output_vs_grid_size.png', dpi=150)
+    print("Saved data_output_vs_grid_size.png")
+    plt.close()
 
     # Plot 3: Time breakdown (stacked bar) for largest grid
-    ax = axes[1, 0]
+    fig, ax = plt.subplots(figsize=(6, 5))
     largest_grid = grouped['grid_total'].max()
     breakdown = grouped[grouped['grid_total'] == largest_grid][['mode', 'time_simulating', 'time_snapshots', 'time_sismos']]
     breakdown = breakdown.set_index('mode')
@@ -101,12 +100,15 @@ def main():
     breakdown.plot(kind='bar', stacked=True, ax=ax, color=['#3498db', '#e74c3c', '#f39c12'])
     ax.set_xlabel('Mode')
     ax.set_ylabel('Time (seconds)')
-    ax.set_title(f'Time Breakdown (grid={largest_grid})')
     ax.legend(['Simulating', 'Snapshots', 'Sismos'])
     ax.tick_params(axis='x', rotation=15)
+    plt.tight_layout()
+    plt.savefig(f'time_breakdown_grid_{largest_grid}.png', dpi=150)
+    print(f"Saved time_breakdown_grid_{largest_grid}.png")
+    plt.close()
 
     # Plot 4: Total time vs grid size
-    ax = axes[1, 1]
+    fig, ax = plt.subplots(figsize=(6, 5))
     for mode in modes:
         data = grouped[grouped['mode'] == mode]
         style = get_style(mode)
@@ -115,17 +117,12 @@ def main():
                 color=style['color'], label=get_label(mode), linewidth=2, markersize=8)
     ax.set_xlabel('Grid Total (elements)')
     ax.set_ylabel('Time (seconds)')
-    ax.set_title('Total Time vs Grid Size')
     ax.legend()
     ax.grid(True, alpha=0.3)
-
-    plt.tight_layout(rect=[0, 0, 1, 0.96])
-
-    if args.output:
-        plt.savefig(args.output, dpi=150)
-        print(f"Saved to {args.output}")
-    else:
-        plt.show()
+    plt.tight_layout()
+    plt.savefig('total_time_vs_grid_size.png', dpi=150)
+    print("Saved total_time_vs_grid_size.png")
+    plt.close()
 
 
 if __name__ == "__main__":
