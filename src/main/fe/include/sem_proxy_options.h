@@ -43,6 +43,9 @@ class SemProxyOptions
   // export parameters
   bool export_params = false;
   std::string export_path = "./exported-params.txt";
+  // in-situ stats
+  bool in_situ_stats = false;
+  std::string in_situ_folder = "insitu_stats";
 
   void _testFile(std::string filePath)
   {
@@ -179,6 +182,10 @@ class SemProxyOptions
         "export-params", "Export simulation parameters",
         cxxopts::value<bool>(o.export_params))(
         "export-path", "Path to export parameters",
-        cxxopts::value<std::string>(o.export_path));
+        cxxopts::value<std::string>(o.export_path))(
+        "in-situ-stats", "Compute in-situ statistics",
+        cxxopts::value<bool>(o.in_situ_stats))(
+        "insitu-folder", "Folder to save in-situ stats",
+        cxxopts::value<std::string>(o.in_situ_folder));
   }
 };

@@ -17,6 +17,8 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <complex>
+#include <vector>
 
 #include "measure.h"
 #include "sem_proxy_options.h"
@@ -25,6 +27,14 @@ enum OutputFormat
 {
   BIN,
   PLAIN,
+};
+
+struct SnapshotStat
+{
+  int index;
+  float min_val;
+  float max_val;
+  float mean_val;
 };
 
 /**
@@ -102,6 +112,13 @@ class SEMproxy
   std::string snapshot_folder_;
   bool snapshot_in_situ_;
   OutputFormat snapshot_format;
+
+  // in-situ stats
+  bool in_situ_stats_ = false;
+  std::string in_situ_folder_;
+  std::vector<SnapshotStat> snapshot_stats_;
+  void computeInSituSnapshotStats(const arrayReal& pressure, int index);
+  void exportInSituStats();
 
   // physics
   bool isElastic_;
