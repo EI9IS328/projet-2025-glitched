@@ -100,3 +100,42 @@ cd build
 cmake .. -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DENABLE_CUDA=ON -DUSE_KOKKOS=ON
 make
 ```
+
+---
+## Benchmarking Export Modes
+
+The `scripts/benchmark_insitu_vs_adhoc.py` script compares different snapshot export strategies:
+
+| Mode | Description |
+|------|-------------|
+| `base` | No snapshot export (baseline) |
+| `adhoc-plain` | Ad-hoc export in plain text format |
+| `adhoc-bin` | Ad-hoc export in binary format |
+| `insitu` | In-situ grayscale image export |
+| `rgb` | In-situ RGB image export with colormap |
+
+### Running Benchmarks
+
+```sh
+# Run all modes with default grid sizes (10, 20, 30, 40, 50)
+python scripts/benchmark_insitu_vs_adhoc.py
+
+# Run specific modes
+python scripts/benchmark_insitu_vs_adhoc.py --modes base insitu rgb
+
+# Custom grid sizes and multiple runs for averaging
+python scripts/benchmark_insitu_vs_adhoc.py --sizes 10 20 30 --runs 3
+
+# Specify binary path and output file
+python scripts/benchmark_insitu_vs_adhoc.py --bin ./build/bin/semproxy --output results.csv
+```
+
+### Visualizing Results
+
+```sh
+# Display plots interactively
+python scripts/plot_benchmark.py results.csv
+
+# Save to image file
+python scripts/plot_benchmark.py results.csv --output benchmark_results.png
+```
