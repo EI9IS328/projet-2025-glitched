@@ -15,17 +15,17 @@
 #include <source_and_receiver_utils.h>
 
 #include <algorithm>
+#include <cstdint>  // For uint32_t (RLE)
 #include <cxxopts.hpp>
 #include <filesystem>
+#include <filesystem>  // For creating directories
 #include <fstream>
 #include <iostream>
+#include <limits>   // For numeric_limits
+#include <numeric>  // For std::accumulate (mean)
 #include <ostream>
 #include <string>
-#include <valarray> // For FFT
-#include <limits> // For numeric_limits
-#include <numeric> // For std::accumulate (mean)
-#include <filesystem> // For creating directories
-#include <cstdint> // For uint32_t (RLE)
+#include <valarray>  // For FFT
 
 using namespace SourceAndReceiverUtils;
 
@@ -37,21 +37,21 @@ typedef std::valarray<Complex> CArray;
 // /!\ FFT implementation was done using gemini-cli
 void fft(CArray& x)
 {
-    const size_t N = x.size();
-    if (N <= 1) return;
-    // divide
-    CArray even = x[std::slice(0, N/2, 2)];
-    CArray  odd = x[std::slice(1, N/2, 2)];
-    // conquer
-    fft(even);
-    fft(odd);
-    // combine
-    for (size_t k = 0; k < N/2; ++k)
-    {
-        Complex t = std::polar(1.0, -2 * PI * k / N) * odd[k];
-        x[k]    = even[k] + t;
-        x[k+N/2] = even[k] - t;
-    }
+  const size_t N = x.size();
+  if (N <= 1) return;
+  // divide
+  CArray even = x[std::slice(0, N / 2, 2)];
+  CArray odd = x[std::slice(1, N / 2, 2)];
+  // conquer
+  fft(even);
+  fft(odd);
+  // combine
+  for (size_t k = 0; k < N / 2; ++k)
+  {
+    Complex t = std::polar(1.0, -2 * PI * k / N) * odd[k];
+    x[k] = even[k] + t;
+    x[k + N / 2] = even[k] - t;
+  }
 }
 
 SEMproxy::SEMproxy(const SemProxyOptions& opt)
@@ -92,11 +92,12 @@ SEMproxy::SEMproxy(const SemProxyOptions& opt)
     // Create snapshot directory if it doesn't exist
     std::filesystem::create_directories(snapshot_folder_);
   }
-  
+
   in_situ_stats_ = opt.in_situ_stats;
   in_situ_folder_ = opt.in_situ_folder;
-  if (in_situ_stats_) {
-      std::filesystem::create_directories(in_situ_folder_);
+  if (in_situ_stats_)
+  {
+    std::filesystem::create_directories(in_situ_folder_);
   }
 
   const SolverFactory::methodType methodType = getMethod(opt.method);
@@ -206,12 +207,34 @@ SEMproxy::SEMproxy(const SemProxyOptions& opt)
   }
 
   snapshot_format = opt.snapshot_format == "bin" ? BIN : PLAIN;
-  if (opt.compression_method_ == "none") {
+  if (opt.compression_method_ == "none")
+  {
     compression_method_ = None;
-  } else if (opt.compression_method_ == "rle") {
+  }
+  else if (opt.compression_method_ == "rle")
+  {
     compression_method_ = RLE;
-  }  else {
-    throw std::runtime_error("Unsupported compression method" + opt.compression_method_);
+  }
+  else if (opt.compression_method_ == "quant")
+  {
+    compression_method_ = Quant;
+    switch (opt.quant_level_)
+    {
+      case 1:
+        quant_level_ = OneByte;
+        break;
+      case 2:
+        quant_level_ = TwoByte;
+        break;
+      default:
+        throw std::runtime_error("unsupported quantization level: " +
+                                 std::to_string(opt.quant_level_));
+    }
+  }
+  else
+  {
+    throw std::runtime_error("Unsupported compression method" +
+                             opt.compression_method_);
   }
 
   if (!opt.saveReport.empty())
@@ -259,11 +282,12 @@ void SEMproxy::run()
         indexTimeSample % snapshot_iterations_interval_ == 0)
     {
       // in-situ stats for snapshots
-      if (in_situ_stats_) {
-          this->i2 = i2;
-          computeInSituSnapshotStats(solverData.m_pnGlobal, indexTimeSample);
+      if (in_situ_stats_)
+      {
+        this->i2 = i2;
+        computeInSituSnapshotStats(solverData.m_pnGlobal, indexTimeSample);
       }
-      
+
       metrics.startClock(MakeSnapshots);
       // create path string
       std::string extension = (snapshot_format == BIN) ? ".bin" : ".txt";
@@ -298,7 +322,7 @@ void SEMproxy::run()
       int ey_ = nb_elements_[1];
       int ez_ = nb_elements_[2];
       int order_ = m_mesh->getOrder();
-      
+
       if (!snapshot_in_situ_)
       {
         if (snapshot_format == BIN)
@@ -309,15 +333,16 @@ void SEMproxy::run()
             int ey;
             int ez;
             int order;
-            enum CompressionMethod compression_method;  // 0 = raw, 1 = RLE encoded
+            enum CompressionMethod
+                compression_method;  // 0 = raw, 1 = RLE encoded
           };
 
           struct snapshot_header_t hdr = {
-            .ex = ex_,
-            .ey = ey_,
-            .ez = ez_,
-            .order = order_,
-            .compression_method = compression_method_,
+              .ex = ex_,
+              .ey = ey_,
+              .ez = ez_,
+              .order = order_,
+              .compression_method = compression_method_,
           };
           snapshot_file.write(reinterpret_cast<char*>(&hdr), sizeof(hdr));
 
@@ -331,26 +356,96 @@ void SEMproxy::run()
             {
               float value = data[i];
               uint32_t count = 1;
-              while (i + count < size && data[i + count] == value && count < UINT32_MAX)
+              while (i + count < size && data[i + count] == value &&
+                     count < UINT32_MAX)
               {
                 count++;
               }
-              snapshot_file.write(reinterpret_cast<char*>(&count), sizeof(uint32_t));
-              snapshot_file.write(reinterpret_cast<const char*>(&value), sizeof(float));
+              snapshot_file.write(reinterpret_cast<char*>(&count),
+                                  sizeof(uint32_t));
+              snapshot_file.write(reinterpret_cast<const char*>(&value),
+                                  sizeof(float));
               i += count;
+            }
+          }
+          else if (compression_method_ == Quant)
+          {
+            // /!\ header additions: 1 byte for quant level (1 or 2) and 4 bytes
+            // for the scale
+            const float* original_data = solverData.m_pnGlobal.data();
+            size_t nb_elems = solverData.m_pnGlobal.size();
+
+            // first we find the absolute max value
+            float abs_max = 0.0f;
+            for (size_t i = 0; i < nb_elems; i++)
+            {
+              float cur_v = original_data[i];
+              if (std::isfinite(cur_v))
+              {
+                float val = std::abs(cur_v);
+                if (abs_max < val) abs_max = val;
+              }
+            }
+
+            if (abs_max == 0.0f) abs_max = 1.0f;  // avoid divide by 0
+
+            // get max possible value depending on quant level
+            float quant_type_max =
+                (quant_level_ == OneByte) ? 127.0f : 32767.0f;
+            float scale = quant_type_max / abs_max;
+
+            // write the header additons
+            snapshot_file.write(reinterpret_cast<char*>(&quant_level_),
+                                sizeof(uint8_t));
+            snapshot_file.write(reinterpret_cast<char*>(&scale), sizeof(float));
+
+            // we quantize and save the content
+            if (quant_level_ == OneByte)  // ik its ugly but I don't know c++ very well
+            {
+              std::vector<int8_t> buffer(nb_elems);
+
+              for (size_t cur = 0; cur < nb_elems; cur++)
+              {
+                float cur_v = original_data[cur];
+
+                if (!std::isfinite(cur_v)) cur_v = 0.0f;
+
+                buffer[cur] = static_cast<int8_t>(std::max(
+                    -quant_type_max,
+                    std::min(quant_type_max, std::round(cur_v * scale))));
+              }
+              snapshot_file.write(reinterpret_cast<char*>(buffer.data()),
+                                  buffer.size() * sizeof(int8_t));
+            }
+            else
+            {
+              std::vector<int16_t> buffer(nb_elems);
+
+              for (size_t cur = 0; cur < nb_elems; cur++)
+              {
+                float cur_v = original_data[cur];
+
+                if (!std::isfinite(cur_v)) cur_v = 0.0f;
+
+                buffer[cur] = static_cast<int16_t>(std::max(
+                    -quant_type_max,
+                    std::min(quant_type_max, std::round(cur_v * scale))));
+              }
+              snapshot_file.write(reinterpret_cast<char*>(buffer.data()),
+                                  buffer.size() * sizeof(int16_t));
             }
           }
           else
           {
-
             snapshot_file.write(
-              reinterpret_cast<char*>(solverData.m_pnGlobal.data()),
-              solverData.m_pnGlobal.size() * sizeof(float));
+                reinterpret_cast<char*>(solverData.m_pnGlobal.data()),
+                solverData.m_pnGlobal.size() * sizeof(float));
           }
         }
         else
         {
-          snapshot_file << ex_ << ',' << ey_ << ',' << ez_ << ',' << order_ << '\n';
+          snapshot_file << ex_ << ',' << ey_ << ',' << ez_ << ',' << order_
+                        << '\n';
           for (int elementNumber = 0;
                elementNumber < m_mesh->getNumberOfElements(); elementNumber++)
           {
@@ -388,13 +483,15 @@ void SEMproxy::run()
         if (snapshot_colormap_ == COLORMAP_GRAYSCALE)
         {
           snapshot_file.write("P5\n", 3);
-          snapshot_file << nb_nodes_[img_axis1] << " " << nb_nodes_[img_axis2] << std::endl;
+          snapshot_file << nb_nodes_[img_axis1] << " " << nb_nodes_[img_axis2]
+                        << std::endl;
           snapshot_file.write("255\n", 4);
         }
         else
         {
           snapshot_file.write("P6\n", 3);
-          snapshot_file << nb_nodes_[img_axis1] << " " << nb_nodes_[img_axis2] << std::endl;
+          snapshot_file << nb_nodes_[img_axis1] << " " << nb_nodes_[img_axis2]
+                        << std::endl;
           snapshot_file.write("255\n", 4);
         }
 
@@ -435,15 +532,18 @@ void SEMproxy::run()
 
         printf("max_pressure=%f\n", max_pressure);
         float _step[3] = {
-          domain_size_[0] / (float)(nb_nodes_[0] - 1),
-          domain_size_[1] / (float)(nb_nodes_[1] - 1),
-          domain_size_[2] / (float)(nb_nodes_[2] - 1),
+            domain_size_[0] / (float)(nb_nodes_[0] - 1),
+            domain_size_[1] / (float)(nb_nodes_[1] - 1),
+            domain_size_[2] / (float)(nb_nodes_[2] - 1),
         };
-        printf("step_x = %f, step_y = %f, step_z = %f\n", _step[0], _step[1], _step[2]);
+        printf("step_x = %f, step_y = %f, step_z = %f\n", _step[0], _step[1],
+               _step[2]);
 
         // Allocate image buffer (1 byte for grayscale, 3 bytes for color)
-        int bytes_per_pixel = (snapshot_colormap_ == COLORMAP_GRAYSCALE) ? 1 : 3;
-        char* img = (char*)calloc(nb_nodes_[img_axis1] * nb_nodes_[img_axis2] * bytes_per_pixel, 1);
+        int bytes_per_pixel =
+            (snapshot_colormap_ == COLORMAP_GRAYSCALE) ? 1 : 3;
+        char* img = (char*)calloc(
+            nb_nodes_[img_axis1] * nb_nodes_[img_axis2] * bytes_per_pixel, 1);
 
         for (int elementNumber = 0;
              elementNumber < m_mesh->getNumberOfElements(); elementNumber++)
@@ -498,7 +598,8 @@ void SEMproxy::run()
             }
           }
         }
-        snapshot_file.write(img, nb_nodes_[img_axis1] * nb_nodes_[img_axis2] * bytes_per_pixel);
+        snapshot_file.write(
+            img, nb_nodes_[img_axis1] * nb_nodes_[img_axis2] * bytes_per_pixel);
         free(img);
       }
 
@@ -553,13 +654,14 @@ void SEMproxy::run()
       save_watched_receivers_output_plain(metrics);
     }
     metrics.stopClockAndAppend(OutputSismos);
-    }
-    
-    if (in_situ_stats_) {
-        exportInSituStats();
-    }
-  
-    metrics.stopClockAndAppend(Global);
+  }
+
+  if (in_situ_stats_)
+  {
+    exportInSituStats();
+  }
+
+  metrics.stopClockAndAppend(Global);
 
   cout << metrics;
   if (saveReportPath)
@@ -726,8 +828,7 @@ int SEMproxy::getSliceAxis(string axisArg)
   if (axisArg == "Y" || axisArg == "y") return 1;
   if (axisArg == "Z" || axisArg == "z") return 2;
 
-  throw std::invalid_argument(
-      "Slice axis must be X, Y, or Z. Got: " + axisArg);
+  throw std::invalid_argument("Slice axis must be X, Y, or Z. Got: " + axisArg);
 }
 
 SolverFactory::implemType SEMproxy::getImplem(string implemArg)
@@ -834,85 +935,95 @@ void SEMproxy::save_watched_receivers_output_plain(Measure& metrics)
 
 void SEMproxy::computeInSituSnapshotStats(const arrayReal& pressure, int index)
 {
-    float min_val = std::numeric_limits<float>::max();
-    float max_val = std::numeric_limits<float>::lowest();
-    double sum = 0.0;
-    
-    int num_nodes = m_mesh->getNumberOfNodes();
-    
-    for (int i = 0; i < num_nodes; ++i) {
-        float val = pressure(i, i2);
-        if (val < min_val) min_val = val;
-        if (val > max_val) max_val = val;
-        sum += val;
-    }
-    float mean_val = static_cast<float>(sum / num_nodes);
-    snapshot_stats_.push_back({index, min_val, max_val, mean_val});
+  float min_val = std::numeric_limits<float>::max();
+  float max_val = std::numeric_limits<float>::lowest();
+  double sum = 0.0;
+
+  int num_nodes = m_mesh->getNumberOfNodes();
+
+  for (int i = 0; i < num_nodes; ++i)
+  {
+    float val = pressure(i, i2);
+    if (val < min_val) min_val = val;
+    if (val > max_val) max_val = val;
+    sum += val;
+  }
+  float mean_val = static_cast<float>(sum / num_nodes);
+  snapshot_stats_.push_back({index, min_val, max_val, mean_val});
 }
 
 void SEMproxy::exportInSituStats()
 {
-    // export sismos
-    std::string sismos_path = in_situ_folder_ + "/sismos_data.csv";
-    std::ofstream sismos_file(sismos_path);
-    sismos_file << "time";
-    for(int i=0; i<rcvs_size_; ++i) sismos_file << ",recv_" << i;
+  // export sismos
+  std::string sismos_path = in_situ_folder_ + "/sismos_data.csv";
+  std::ofstream sismos_file(sismos_path);
+  sismos_file << "time";
+  for (int i = 0; i < rcvs_size_; ++i) sismos_file << ",recv_" << i;
+  sismos_file << "\n";
+
+  // pnAtReceiver(rcv, time)
+  for (int t = 0; t < num_sample_; ++t)
+  {
+    float time = t * dt_;
+    sismos_file << time;
+    for (int i = 0; i < rcvs_size_; ++i)
+    {
+      sismos_file << "," << pnAtReceiver(i, t);
+    }
     sismos_file << "\n";
-    
-    // pnAtReceiver(rcv, time)
-    for(int t=0; t<num_sample_; ++t) {
-        float time = t * dt_;
-        sismos_file << time;
-        for(int i=0; i<rcvs_size_; ++i) {
-            sismos_file << "," << pnAtReceiver(i, t);
-        }
-        sismos_file << "\n";
+  }
+  sismos_file.close();
+
+  // export FFT
+  int n = num_sample_;
+  int N = 1;
+  while (N < n) N *= 2;
+
+  std::string fft_path = in_situ_folder_ + "/fft_data.csv";
+  std::ofstream fft_file(fft_path);
+  fft_file << "freq";
+  for (int i = 0; i < rcvs_size_; ++i) fft_file << ",recv_" << i;
+  fft_file << "\n";
+
+  std::vector<std::vector<double>> fft_magnitudes(rcvs_size_);
+
+  for (int i = 0; i < rcvs_size_; ++i)
+  {
+    CArray data(N);
+    for (int t = 0; t < n; ++t)
+    {
+      data[t] = Complex(pnAtReceiver(i, t), 0);
     }
-    sismos_file.close();
-    
-    // export FFT
-    int n = num_sample_;
-    int N = 1;
-    while(N < n) N *= 2;
-    
-    std::string fft_path = in_situ_folder_ + "/fft_data.csv";
-    std::ofstream fft_file(fft_path);
-    fft_file << "freq";
-    for(int i=0; i<rcvs_size_; ++i) fft_file << ",recv_" << i;
+
+    fft(data);
+
+    fft_magnitudes[i].resize(N / 2);
+    for (int k = 0; k < N / 2; ++k)
+    {
+      fft_magnitudes[i][k] = std::abs(data[k]);
+    }
+  }
+
+  double df = (1.0 / dt_) / N;
+  for (int k = 0; k < N / 2; ++k)
+  {
+    fft_file << k * df;
+    for (int i = 0; i < rcvs_size_; ++i)
+    {
+      fft_file << "," << fft_magnitudes[i][k];
+    }
     fft_file << "\n";
-    
-    std::vector<std::vector<double>> fft_magnitudes(rcvs_size_);
-    
-    for(int i=0; i<rcvs_size_; ++i) {
-        CArray data(N);
-        for(int t=0; t<n; ++t) {
-            data[t] = Complex(pnAtReceiver(i, t), 0);
-        }
-        
-        fft(data);
-        
-        fft_magnitudes[i].resize(N/2);
-        for(int k=0; k<N/2; ++k) {
-            fft_magnitudes[i][k] = std::abs(data[k]);
-        }
-    }
-    
-    double df = (1.0 / dt_) / N;
-    for(int k=0; k<N/2; ++k) {
-        fft_file << k * df;
-        for(int i=0; i<rcvs_size_; ++i) {
-            fft_file << "," << fft_magnitudes[i][k];
-        }
-        fft_file << "\n";
-    }
-    fft_file.close();
-    
-    // export
-    std::string snap_path = in_situ_folder_ + "/snapshot_stats.csv";
-    std::ofstream snap_file(snap_path);
-    snap_file << "index,min,max,mean\n";
-    for(const auto& s : snapshot_stats_) {
-        snap_file << s.index << "," << s.min_val << "," << s.max_val << "," << s.mean_val << "\n";
-    }
-    snap_file.close();
+  }
+  fft_file.close();
+
+  // export
+  std::string snap_path = in_situ_folder_ + "/snapshot_stats.csv";
+  std::ofstream snap_file(snap_path);
+  snap_file << "index,min,max,mean\n";
+  for (const auto& s : snapshot_stats_)
+  {
+    snap_file << s.index << "," << s.min_val << "," << s.max_val << ","
+              << s.mean_val << "\n";
+  }
+  snap_file.close();
 }
