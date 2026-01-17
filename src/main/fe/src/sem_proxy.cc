@@ -206,7 +206,11 @@ SEMproxy::SEMproxy(const SemProxyOptions& opt)
   }
 
   snapshot_format = opt.snapshot_format == "bin" ? BIN : PLAIN;
-  snapshot_rle_ = opt.snapshot_rle;
+  if (opt.compression_method_ == "none") {
+    compression_method_ = None;
+  } else if (opt.compression_method_ == "rle") {
+    compression_method_ = RLE;
+  }  // no need for else fallback as we already checked in opts and we are good devs that never ever do regression mistakes......
 
   if (!opt.saveReport.empty())
   {
@@ -303,7 +307,7 @@ void SEMproxy::run()
             int ey;
             int ez;
             int order;
-            int rle;  // 0 = raw, 1 = RLE encoded
+            enum CompressionMethod compression_method;  // 0 = raw, 1 = RLE encoded
           };
 
           struct snapshot_header_t hdr = {
@@ -311,11 +315,11 @@ void SEMproxy::run()
             .ey = ey_,
             .ez = ez_,
             .order = order_,
-            .rle = snapshot_rle_ ? 1 : 0,
+            .compression_method = compression_method_,
           };
           snapshot_file.write(reinterpret_cast<char*>(&hdr), sizeof(hdr));
 
-          if (snapshot_rle_)
+          if (compression_method_ == RLE)
           {
             // RLE encoding: write (count, value) pairs
             const float* data = solverData.m_pnGlobal.data();
@@ -336,6 +340,7 @@ void SEMproxy::run()
           }
           else
           {
+
             snapshot_file.write(
               reinterpret_cast<char*>(solverData.m_pnGlobal.data()),
               solverData.m_pnGlobal.size() * sizeof(float));

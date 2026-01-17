@@ -30,6 +30,12 @@ enum OutputFormat
   PLAIN,
 };
 
+enum CompressionMethod
+{
+  None,
+  RLE,
+};
+
 struct SnapshotStat
 {
   int index;
@@ -114,7 +120,7 @@ class SEMproxy
   bool snapshot_in_situ_;
   int snapshot_slice_axis_;  // 0=X, 1=Y, 2=Z
   OutputFormat snapshot_format;
-  bool snapshot_rle_;
+  CompressionMethod compression_method_;
   ColormapType snapshot_colormap_;
 
   // in-situ stats
